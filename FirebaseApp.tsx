@@ -8,32 +8,40 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import {
-  addDoc, collection, doc, onSnapshot, query, serverTimestamp, where, writeBatch,
+  addDoc, collection, doc, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch,
   type Timestamp,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
-type Role = 'collaborator' | 'supervisor';
-type Profile = { name: string; email: string; role: Role; active: boolean };
-type Status = 'pending' | 'approved' | 'rejected' | 'in_progress' | 'completed' | 'not_completed';
+type Role = 'collaborator' | 'area_manager' | 'manager';
+type Profile = { name: string; email: string; role: Role; department: string; active: boolean };
+type DirectoryPerson = Profile & { id: string };
+type Status = 'pending' | 'review' | 'approved' | 'rejected' | 'in_progress' | 'completed' | 'not_completed';
 type Project = {
   id: string; title: string; description: string; area: string; ownerName: string;
   authorId: string; authorName: string; status: Status; archived: boolean;
+  areaManagerId: string; approverIds: string[]; approvalStates: Record<string, 'pending' | 'approved'>;
+  costCents: number; returnCents: number; returnPeriod: 'month' | 'year'; estimateNotes: string;
   nonCompletionReason: string; createdAt?: Timestamp; updatedAt?: Timestamp; lastActionId: string;
 };
-type EventType = 'created' | 'approved' | 'rejected' | 'in_progress' | 'completed' | 'not_completed' | 'archived' | 'observation';
+type EventType = 'created' | 'review_started' | 'manager_approved' | 'rejected' | 'in_progress' | 'completed' | 'not_completed' | 'archived' | 'observation';
 type Event = { id: string; type: EventType; actorId: string; actorName: string; detail: string; createdAt?: Timestamp; projectTitle?: string };
 
 const BLUE = '#2279A9', GREEN = '#78B32F', INK = '#173348', MUTED = '#5E7280';
 const statuses: Record<Status, string> = {
-  pending: 'Aguardando aprovação', approved: 'Aprovada', rejected: 'Não aprovada',
+  pending: 'Aguardando gestor da área', review: 'Aguardando gestores', approved: 'Aprovada por todos', rejected: 'Não aprovada',
   in_progress: 'Em andamento', completed: 'Concluída', not_completed: 'Não concluída',
 };
 const actions: Record<EventType, string> = {
-  created: 'Proposta criada', approved: 'Proposta aprovada', rejected: 'Proposta não aprovada',
+  created: 'Proposta criada', review_started: 'Gestores definidos', manager_approved: 'Aprovação registrada', rejected: 'Proposta não aprovada',
   in_progress: 'Execução iniciada', completed: 'Proposta concluída',
   not_completed: 'Proposta não concluída', archived: 'Proposta excluída', observation: 'Observação adicionada',
 };
+const formatMoney = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function parseMoney(value: string) {
+  const normalized = value.trim().replace(/\./g, '').replace(',', '.');
+  return /^\d+(\.\d{1,2})?$/.test(normalized) ? Math.round(Number(normalized) * 100) : null;
+}
 function displayDate(value?: Timestamp) {
   return value?.toDate ? value.toDate().toLocaleString('pt-BR') : 'Sincronizando...';
 }
@@ -52,11 +60,12 @@ function Button({ title, onPress, disabled = false, outline = false, danger = fa
     <Text style={[s.buttonText, outline && { color: BLUE }, danger && { color: '#B22934' }]}>{title}</Text>
   </Pressable>;
 }
-function Field({ label, value, onChange, multiline = false, maxLength }: {
-  label: string; value: string; onChange: (v: string) => void; multiline?: boolean; maxLength?: number;
+function Field({ label, value, onChange, multiline = false, maxLength, numeric = false }: {
+  label: string; value: string; onChange: (v: string) => void; multiline?: boolean; maxLength?: number; numeric?: boolean;
 }) {
   return <View style={s.field}><Text style={s.label}>{label}</Text>
     <TextInput style={[s.input, multiline && s.multiline]} value={value} onChangeText={onChange}
+      keyboardType={numeric ? 'decimal-pad' : 'default'}
       maxLength={maxLength} multiline={multiline} placeholderTextColor="#9BA8AF" />
   </View>;
 }
@@ -65,6 +74,7 @@ export default function FirebaseApp() {
   const { width } = useWindowDimensions();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [directory, setDirectory] = useState<DirectoryPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState('');
@@ -82,7 +92,13 @@ export default function FirebaseApp() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [area, setArea] = useState('');
+  const [areaManagerId, setAreaManagerId] = useState('');
   const [ownerName, setOwnerName] = useState('');
+  const [cost, setCost] = useState('');
+  const [expectedReturn, setExpectedReturn] = useState('');
+  const [returnPeriod, setReturnPeriod] = useState<'month' | 'year'>('month');
+  const [estimateNotes, setEstimateNotes] = useState('');
+  const [chosenApprovers, setChosenApprovers] = useState<string[]>([]);
   const [observation, setObservation] = useState('');
   const [reason, setReason] = useState('');
   const lastBackPress = useRef(0);
@@ -102,12 +118,19 @@ export default function FirebaseApp() {
   useEffect(() => {
     if (!user || !profile?.active) return;
     const base = collection(db, 'projects');
-    const listQuery = profile.role === 'supervisor' ? query(base) : query(base, where('archived', '==', false));
+    const listQuery = profile.role === 'area_manager' ? query(base) : query(base, where('archived', '==', false));
     return onSnapshot(listQuery, snap => {
       setProjects(snap.docs.map(item => ({ id: item.id, ...item.data() } as Project))
         .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)));
     }, showError);
   }, [user?.uid, profile?.active, profile?.role]);
+  useEffect(() => {
+    if (!user || !profile?.active) { setDirectory([]); return; }
+    return onSnapshot(collection(db, 'users'), snap => {
+      setDirectory(snap.docs.map(item => ({ id: item.id, ...item.data() } as DirectoryPerson))
+        .filter(person => person.active && (person.role === 'area_manager' || person.role === 'manager')));
+    }, showError);
+  }, [user?.uid, profile?.active]);
   useEffect(() => {
     if (!selectedId || !user || !profile?.active) { setEvents([]); return; }
     return onSnapshot(query(collection(db, 'projects', selectedId, 'events')), snap => {
@@ -116,7 +139,7 @@ export default function FirebaseApp() {
     }, showError);
   }, [selectedId, user?.uid, profile?.active]);
   useEffect(() => {
-    if (!showAllHistory || profile?.role !== 'supervisor') { setAllEvents([]); return; }
+    if (!showAllHistory || profile?.role !== 'area_manager') { setAllEvents([]); return; }
     const byProject = new Map<string, Event[]>();
     const stops = projects.map(project => onSnapshot(collection(db, 'projects', project.id, 'events'), snap => {
       byProject.set(project.id, snap.docs.map(item => ({ id: item.id, ...item.data(), projectTitle: project.title } as Event)));
@@ -137,8 +160,11 @@ export default function FirebaseApp() {
     return () => sub.remove();
   }, []);
 
-  const current = projects.find(item => item.id === selectedId && (!item.archived || profile?.role === 'supervisor'));
-  const visible = projects.filter(item => profile?.role === 'supervisor' ? item.archived === showArchived : !item.archived);
+  const current = projects.find(item => item.id === selectedId && (!item.archived || profile?.role === 'area_manager'));
+  const areaManagers = directory.filter(person => person.role === 'area_manager');
+  const possibleApprovers = directory.filter(person => person.role === 'manager' && person.id !== current?.areaManagerId);
+  const isAreaManager = current?.areaManagerId === user?.uid && profile?.role === 'area_manager';
+  const visible = projects.filter(item => profile?.role === 'area_manager' ? item.archived === showArchived : !item.archived);
   const scroller = (children: React.ReactNode) => <ScrollView style={{ flex: 1 }}
     contentContainerStyle={{ padding: width < 360 ? 14 : 20, paddingBottom: 60 }}
     keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
@@ -156,7 +182,10 @@ export default function FirebaseApp() {
   }
   async function createProject() {
     if (!user || !profile) return;
-    if (![title, description, area, ownerName].every(value => value.trim())) {
+    const chosenAreaManager = areaManagers.find(person => person.id === areaManagerId);
+    const costCents = parseMoney(cost), returnCents = parseMoney(expectedReturn);
+    if (![title, description, ownerName, estimateNotes].every(value => value.trim()) || !chosenAreaManager?.department
+      || costCents === null || costCents <= 0 || returnCents === null) {
       Alert.alert('Campos obrigatórios', 'Preencha todos os campos da proposta.'); return;
     }
     setBusy(true);
@@ -165,18 +194,63 @@ export default function FirebaseApp() {
       const eventRef = doc(collection(projectRef, 'events'));
       const batch = writeBatch(db);
       batch.set(projectRef, {
-        title: title.trim(), description: description.trim(), area: area.trim(), ownerName: ownerName.trim(),
+        title: title.trim(), description: description.trim(), area: chosenAreaManager.department, ownerName: ownerName.trim(),
         authorId: user.uid, authorName: profile.name, status: 'pending', archived: false,
+        areaManagerId, approverIds: [], approvalStates: {}, costCents, returnCents,
+        returnPeriod, estimateNotes: estimateNotes.trim(),
         nonCompletionReason: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastActionId: eventRef.id,
       });
       batch.set(eventRef, { type: 'created', actorId: user.uid, actorName: profile.name, detail: '', createdAt: serverTimestamp() });
       await batch.commit();
-      setTitle(''); setDescription(''); setArea(''); setOwnerName(''); setCreating(false);
-      Alert.alert('Proposta enviada', 'Ela ficará aguardando aprovação do supervisor.');
+      setTitle(''); setDescription(''); setArea(''); setAreaManagerId(''); setOwnerName(''); setCost('');
+      setExpectedReturn(''); setEstimateNotes(''); setCreating(false);
+      Alert.alert('Proposta enviada', 'O gestor da área escolherá quem deve aprovar.');
     } catch (error) { showError(error); } finally { setBusy(false); }
   }
-  async function decision(type: Exclude<EventType, 'created' | 'observation'>, detail = '') {
-    if (!user || !profile || profile.role !== 'supervisor' || !current) return;
+  async function startReview() {
+    if (!user || !profile || !current || !isAreaManager || current.status !== 'pending') return;
+    if (chosenApprovers.length < 2 || chosenApprovers.length > 5) {
+      Alert.alert('Escolha os gestores', 'Selecione de dois a cinco gestores aprovadores.'); return;
+    }
+    setBusy(true);
+    try {
+      const projectRef = doc(db, 'projects', current.id);
+      const eventRef = doc(collection(projectRef, 'events'));
+      const batch = writeBatch(db);
+      batch.update(projectRef, {
+        status: 'review', approverIds: chosenApprovers,
+        approvalStates: Object.fromEntries(chosenApprovers.map(id => [id, 'pending'])),
+        updatedAt: serverTimestamp(), lastActionId: eventRef.id,
+      });
+      batch.set(eventRef, { type: 'review_started', actorId: user.uid, actorName: profile.name,
+        detail: chosenApprovers.map(id => directory.find(person => person.id === id)?.name || id).join(', '),
+        createdAt: serverTimestamp() });
+      await batch.commit(); setChosenApprovers([]);
+    } catch (error) { showError(error); } finally { setBusy(false); }
+  }
+  async function approveAsManager() {
+    if (!user || !profile || !current || profile.role !== 'manager' || current.status !== 'review'
+      || current.approvalStates[user.uid] !== 'pending') return;
+    setBusy(true);
+    try {
+      const projectRef = doc(db, 'projects', current.id);
+      const eventRef = doc(collection(projectRef, 'events'));
+      await runTransaction(db, async transaction => {
+        const latest = await transaction.get(projectRef);
+        if (!latest.exists()) throw new Error('Proposta indisponível');
+        const data = latest.data() as Project;
+        if (data.status !== 'review' || data.approvalStates[user.uid] !== 'pending') throw new Error('Aprovação já registrada');
+        const approvalStates = { ...data.approvalStates, [user.uid]: 'approved' };
+        const allApproved = data.approverIds.every(id => approvalStates[id] === 'approved');
+        transaction.update(projectRef, { approvalStates, status: allApproved ? 'approved' : 'review',
+          updatedAt: serverTimestamp(), lastActionId: eventRef.id });
+        transaction.set(eventRef, { type: 'manager_approved', actorId: user.uid, actorName: profile.name,
+          detail: '', createdAt: serverTimestamp() });
+      });
+    } catch (error) { showError(error); } finally { setBusy(false); }
+  }
+  async function decision(type: 'rejected' | 'in_progress' | 'completed' | 'not_completed' | 'archived', detail = '') {
+    if (!user || !profile || !current || !isAreaManager) return;
     setBusy(true);
     try {
       const projectRef = doc(db, 'projects', current.id);
@@ -194,7 +268,7 @@ export default function FirebaseApp() {
     } catch (error) { showError(error); } finally { setBusy(false); }
   }
   function archive() {
-    Alert.alert('Excluir proposta?', 'Ela sairá da lista principal, mas permanecerá no histórico do supervisor.', [
+    Alert.alert('Excluir proposta?', 'Ela sairá da lista principal, mas permanecerá no histórico dos gestores da área.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Excluir', style: 'destructive', onPress: () => { void decision('archived'); } },
     ]);
@@ -238,8 +312,19 @@ export default function FirebaseApp() {
         <Text style={s.heading}>Nova proposta</Text>
         <Field label="Título da melhoria *" value={title} onChange={setTitle} maxLength={120} />
         <Field label="Descrição *" value={description} onChange={setDescription} multiline maxLength={4000} />
-        <Field label="Setor / área *" value={area} onChange={setArea} maxLength={120} />
+        <Text style={s.section}>Gestor responsável pela área *</Text>
+        {areaManagers.length === 0 && <Text style={s.sub}>A TI precisa cadastrar um gestor de área ativo para receber propostas.</Text>}
+        {areaManagers.map(person => <Pressable key={person.id} onPress={() => { setAreaManagerId(person.id); setArea(person.department); }}>
+          <Text style={s.link}>{areaManagerId === person.id ? '☑' : '☐'} {person.name} · {person.department}</Text>
+        </Pressable>)}
         <Field label="Responsável pelo projeto *" value={ownerName} onChange={setOwnerName} maxLength={120} />
+        <Text style={s.section}>Estimativa financeira</Text>
+        <Field label="Custo de implantação (R$) *" value={cost} onChange={setCost} maxLength={20} numeric />
+        <Field label="Retorno esperado (R$) *" value={expectedReturn} onChange={setExpectedReturn} maxLength={20} numeric />
+        <Text style={s.label}>PERÍODO DO RETORNO *</Text>
+        <Button title="Por mês" outline={returnPeriod !== 'month'} onPress={() => setReturnPeriod('month')} />
+        <Button title="Por ano" outline={returnPeriod !== 'year'} onPress={() => setReturnPeriod('year')} />
+        <Field label="De onde vêm as estimativas? *" value={estimateNotes} onChange={setEstimateNotes} multiline maxLength={2000} />
         <Button title={busy ? 'Enviando...' : 'Enviar para aprovação'} onPress={createProject} disabled={busy} />
       </>) : current ? scroller(<>
         <Pressable onPress={() => { setSelectedId(null); setShowHistory(false); setShowNoComplete(false); }}><Text style={s.link}>‹ Voltar ao painel</Text></Pressable>
@@ -249,15 +334,31 @@ export default function FirebaseApp() {
         <Text style={s.label}>RESPONSÁVEL</Text><Text style={s.value}>{current.ownerName}</Text>
         <Text style={s.label}>AUTOR</Text><Text style={s.value}>{current.authorName}</Text>
         <Text style={s.label}>PROPOSTA</Text><Text style={s.value}>{current.description}</Text>
+        <View style={s.card}><Text style={s.cardTitle}>Estimativa financeira</Text>
+          <Text style={s.value}>Custo de implantação: {formatMoney(current.costCents)}</Text>
+          <Text style={s.value}>Retorno previsto: {formatMoney(current.returnPeriod === 'month' ? current.returnCents : Math.round(current.returnCents / 12))} por mês</Text>
+          <Text style={s.value}>Equivalente anual: {formatMoney(current.returnPeriod === 'year' ? current.returnCents : current.returnCents * 12)}</Text>
+          <Text style={s.sub}>Base da estimativa: {current.estimateNotes}</Text>
+        </View>
+        <Text style={s.section}>Aprovações</Text>
+        {current.approverIds.length === 0 && <Text style={s.sub}>O gestor da área ainda vai escolher os aprovadores.</Text>}
+        {current.approverIds.map(id => <Text key={id} style={s.value}>{directory.find(person => person.id === id)?.name || 'Gestor'}: {current.approvalStates[id] === 'approved' ? 'aprovou' : 'aguardando aprovação'}</Text>)}
+        {isAreaManager && current.status === 'pending' && !current.archived && <View style={s.card}>
+          <Text style={s.cardTitle}>Definir gestores aprovadores</Text><Text style={s.sub}>Selecione de dois a cinco gestores.</Text>
+          {possibleApprovers.map(person => <Pressable key={person.id} onPress={() => setChosenApprovers(ids => ids.includes(person.id)
+            ? ids.filter(id => id !== person.id) : [...ids, person.id])}><Text style={s.link}>{chosenApprovers.includes(person.id) ? '☑' : '☐'} {person.name} · {person.department}</Text></Pressable>)}
+          <Button title="Enviar para aprovação" onPress={() => { void startReview(); }} disabled={busy} />
+        </View>}
+        {profile.role === 'manager' && current.status === 'review' && current.approvalStates[user.uid] === 'pending'
+          && <Button title="Registrar minha aprovação" onPress={() => { void approveAsManager(); }} disabled={busy} />}
         {current.status === 'not_completed' && <View style={s.notice}>
           <Text style={s.cardTitle}>Motivo da não conclusão</Text>
           <Text style={s.value}>{current.nonCompletionReason}</Text>
           <Text style={s.sub}>Você pode acrescentar uma observação abaixo.</Text>
         </View>}
-        {profile.role === 'supervisor' && !current.archived && <View style={s.card}>
-          <Text style={s.cardTitle}>Ações do supervisor</Text>
-          {current.status === 'pending' && <><Button title="Aprovar proposta" onPress={() => { void decision('approved'); }} disabled={busy} />
-            <Button title="Não aprovar" onPress={() => { void decision('rejected'); }} outline disabled={busy} /></>}
+        {isAreaManager && !current.archived && <View style={s.card}>
+          <Text style={s.cardTitle}>Ações do gestor da área</Text>
+          {current.status === 'pending' && <Button title="Não aprovar" onPress={() => { void decision('rejected'); }} outline disabled={busy} />}
           {current.status === 'approved' && <Button title="Iniciar execução" onPress={() => { void decision('in_progress'); }} disabled={busy} />}
           {current.status === 'in_progress' && <Button title="Concluir proposta" onPress={() => { void decision('completed'); }} disabled={busy} />}
           {['approved', 'in_progress'].includes(current.status) && <><Button title="Não concluir proposta" onPress={() => setShowNoComplete(true)} outline />
@@ -283,11 +384,11 @@ export default function FirebaseApp() {
       </>) : scroller(<>
         <Text style={s.heading}>Painel de melhorias</Text><Text style={s.sub}>Propostas e andamento da fábrica.</Text>
         <Button title="+ Propor melhoria" onPress={() => setCreating(true)} />
-        {profile.role === 'supervisor' && <Button title={showArchived ? 'Ver propostas ativas' : 'Ver propostas excluídas'}
+        {profile.role === 'area_manager' && <Button title={showArchived ? 'Ver propostas ativas' : 'Ver propostas excluídas'}
           onPress={() => setShowArchived(!showArchived)} outline />}
-        {profile.role === 'supervisor' && <Button title={showAllHistory ? 'Ocultar histórico geral' : 'Ver histórico geral'}
+        {profile.role === 'area_manager' && <Button title={showAllHistory ? 'Ocultar histórico geral' : 'Ver histórico geral'}
           onPress={() => setShowAllHistory(!showAllHistory)} outline />}
-        {showAllHistory && profile.role === 'supervisor' && <>
+        {showAllHistory && profile.role === 'area_manager' && <>
           <Text style={s.section}>Histórico geral</Text>
           {allEvents.length === 0 && <Text style={s.sub}>Nenhuma ação registrada.</Text>}
           {allEvents.map(event => <View key={`${event.projectTitle}-${event.id}`} style={s.historyItem}>
@@ -296,7 +397,7 @@ export default function FirebaseApp() {
             {event.detail && <Text style={s.value}>{event.detail}</Text>}
           </View>)}
         </>}
-        <Text style={s.section}>{showArchived && profile.role === 'supervisor' ? 'Propostas excluídas' : 'Propostas da fábrica'}</Text>
+        <Text style={s.section}>{showArchived && profile.role === 'area_manager' ? 'Propostas excluídas' : 'Propostas da fábrica'}</Text>
         {visible.length === 0 && <Text style={s.sub}>Nenhuma proposta nesta lista.</Text>}
         {visible.map(project => <Pressable key={project.id} style={s.card} onPress={() => { setSelectedId(project.id); setShowHistory(false); }}>
           <Text style={s.cardTitle}>{project.title}</Text><Text style={s.sub}>{project.area} · {project.ownerName}</Text>

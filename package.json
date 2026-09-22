@@ -3,10 +3,26 @@
   "version": "2.0.0",
   "private": true,
   "main": "index.js",
-  "scripts": {"start": "expo start", "android": "expo start --android", "check": "tsc --noEmit"},
-  "dependencies": {
-    "expo": "~54.0.0", "expo-status-bar": "~3.0.0", "react": "19.1.0", "react-native": "0.81.4",
-    "firebase": "^12.0.0", "@firebase/auth": "^1.13.6", "@react-native-async-storage/async-storage": "2.2.0", "expo-linear-gradient": "~15.0.0"
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "check": "tsc --noEmit",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-app-melhorias-rules \"node --test tests/firestore.rules.test.mjs\""
   },
-  "devDependencies": {"typescript": "~5.9.2", "@types/react": "~19.1.0"}
+  "dependencies": {
+    "@firebase/auth": "^1.13.6",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~54.0.0",
+    "expo-linear-gradient": "~15.0.0",
+    "expo-status-bar": "~3.0.0",
+    "firebase": "^12.0.0",
+    "react": "19.1.0",
+    "react-native": "0.81.4"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@types/react": "~19.1.0",
+    "firebase-tools": "^14.27.0",
+    "typescript": "~5.9.2"
+  }
 }

@@ -17,11 +17,14 @@ Crie os usuários na área **Authentication → Users**. Para cada UID criado, a
   "name": "Nome completo",
   "email": "pessoa@empresa.com.br",
   "role": "collaborator",
+  "department": "Extrusão",
   "active": true
 }
 ```
 
-Para um supervisor, use `"role": "supervisor"`. Os demais campos devem continuar iguais. O UID do documento precisa ser exatamente o UID do Authentication. Se `active` for `false` ou o documento não existir, a conta não acessa os dados. Não dê a colaboradores acesso ao console Firebase; as permissões do app são diferentes das permissões administrativas do console.
+Use `"role": "area_manager"` para um gestor da área e `"role": "manager"` para um gestor que poderá aprovar propostas. Cada pessoa precisa da própria conta e do próprio UID. Preencha `department` com o nome do setor do gestor da área: esse nome aparecerá no cadastro da proposta. O UID do documento precisa ser exatamente o UID do Authentication. Se `active` for `false` ou o documento não existir, a conta não acessa os dados. Não dê a colaboradores acesso ao console Firebase; as permissões do app são diferentes das permissões administrativas do console.
+
+Os usuários ativos conseguem consultar os nomes, departamentos, papéis e e-mails dos perfis internos para escolher gestores. Cadastre apenas informações profissionais necessárias. O gestor da área selecionado pelo autor escolhe de dois a cinco aprovadores ativos com papel `manager`. Não há uma lista fixa: cada proposta pode ter gestores diferentes.
 
 O app não cria contas nem altera papéis. Para muitos usuários, a TI pode automatizar o provisionamento com ferramentas administrativas próprias, depois de revisar o processo.
 
@@ -37,7 +40,9 @@ npx firebase-tools deploy --only firestore
 
 O comando de publicação substitui as regras atuais do projeto selecionado. Confirme o projeto antes de executar. Não use um projeto que já tenha dados de outra aplicação sem combinar a alteração com a equipe responsável.
 
-As regras exigem que proposta e primeiro evento de histórico sejam gravados juntos. Aprovação, andamento, não conclusão e exclusão também exigem um evento na mesma operação. Observações são eventos próprios. Colaboradores não consultam propostas excluídas; supervisores podem consultá-las e ver o histórico geral. O aplicativo nunca apaga documentos fisicamente.
+As regras exigem que proposta e primeiro evento de histórico sejam gravados juntos. A seleção dos gestores, cada aprovação individual, o andamento, a não conclusão e a exclusão também exigem um evento na mesma operação. Um gestor não pode aprovar por outro, e a execução só é liberada após todos os aprovadores escolhidos registrarem a decisão. Observações são eventos próprios. Colaboradores não consultam propostas excluídas; gestores da área podem consultá-las e ver o histórico geral. O aplicativo nunca apaga documentos fisicamente.
+
+O custo de implantação e o retorno esperado são estimativas informadas em reais, armazenadas em centavos. O autor informa se o retorno é mensal ou anual, e o aplicativo mostra as duas visualizações. A observação sobre a origem da estimativa é obrigatória. Os valores não representam orçamento aprovado ou economia comprovada: defina uma conferência financeira interna antes de usá-los para autorizar gastos.
 
 ## 4. Conectar o app
 
@@ -49,20 +54,21 @@ Antes do build, substitua o identificador de exemplo `br.com.suaempresa.painelme
 
 ## 5. Testar antes da distribuição
 
-Use pelo menos duas contas e dois aparelhos conectados à internet:
+Use pelo menos quatro contas (colaborador, gestor da área e dois gestores aprovadores) em aparelhos conectados à internet:
 
-1. Colaborador cria uma proposta; ambos veem **Aguardando aprovação**.
-2. Colaborador tenta aprovar: a opção não aparece e uma tentativa direta no banco deve ser negada pelas regras.
-3. Supervisor aprova, inicia e conclui; cada mudança aparece no outro aparelho e no histórico da proposta.
-4. Em outra proposta, supervisor escolhe **Não concluir** sem motivo: o app bloqueia. Com motivo, o status muda e todos veem a explicação; ambos conseguem comentar.
-5. Supervisor exclui uma proposta: ela desaparece para o colaborador, mas permanece em **Propostas excluídas** e no histórico geral do supervisor.
-6. Desative uma conta em `users/{uid}` e confirme que ela deixa de ler e gravar dados.
-7. Feche e reabra o app, teste a senha visível/oculta, o teclado em formulários longos e os dois toques em Voltar no Android.
+1. Colaborador cria uma proposta com custo, retorno, período e justificativa. Confira a conversão entre valor mensal e anual.
+2. O gestor da área escolhe dois gestores diferentes. A proposta passa para **Aguardando gestores**.
+3. O primeiro gestor aprova; a execução ainda deve estar bloqueada. Uma tentativa de aprovar usando a conta de outro gestor deve ser negada pelas regras.
+4. O segundo gestor aprova; a proposta passa para **Aprovada por todos**. O gestor da área inicia e conclui a execução, e cada ação aparece no histórico.
+5. Em outra proposta, o gestor da área escolhe **Não concluir** sem motivo: o app bloqueia. Com motivo, todos veem a explicação e podem comentar.
+6. O gestor da área exclui uma proposta: ela desaparece para colaboradores e aprovadores, mas permanece em **Propostas excluídas** e no histórico geral dos gestores da área.
+7. Desative uma conta em `users/{uid}` e confirme que ela deixa de ler e gravar dados.
+8. Feche e reabra o app, teste a senha visível/oculta, o teclado em formulários longos e os dois toques em Voltar no Android.
 
-Revise também regras de privacidade, backup, recuperação, monitoramento e custos antes de colocar dados reais da fábrica. Para uso em escala maior, planeje paginação do histórico geral: a versão atual acompanha os eventos de cada proposta aberta no painel do supervisor.
+Revise também regras de privacidade, backup, recuperação, monitoramento e custos antes de colocar dados reais da fábrica. Para uso em escala maior, planeje paginação do histórico geral: a versão atual acompanha os eventos de cada proposta aberta no painel do gestor da área.
 
 ## 6. Gerar e distribuir
 
 O perfil `preview` gera um APK para teste interno. O perfil `production` gera um AAB para distribuição por loja. Defina quem pode baixar e instalar o APK e como serão feitas as atualizações. Um APK de teste não se atualiza sozinho em todos os aparelhos.
 
-As propostas criadas na versão offline não são importadas automaticamente. Se for necessário migrá-las, a TI deve planejar uma importação aprovada, com conferência dos dados e dos responsáveis.
+As propostas criadas na versão offline não são importadas automaticamente. Propostas de versões anteriores do esquema Firestore também precisam de migração antes de aplicar estas regras: os novos campos de custo, retorno, gestor da área e aprovadores são obrigatórios. A TI deve planejar uma importação ou migração aprovada, com conferência dos dados e dos responsáveis.

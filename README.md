@@ -4,19 +4,19 @@ Modelo de aplicativo para registrar ideias de melhoria e acompanhar propostas. E
 
 ## Modos disponíveis
 
-No modo **offline**, os dados ficam no próprio aparelho. Ele é indicado para demonstrações e testes rápidos. A senha de colaborador é `111111`; a senha de supervisor é `000000`.
+No modo **offline**, os dados ficam no próprio aparelho. Ele é indicado para demonstrações e testes rápidos. Os acessos de exemplo são: colaborador `000000`, gestor da área `111111`, gestor da manutenção `222222` e gestor de custos `333333`. Essas senhas são apenas para apresentação, não para uso na empresa.
 
-No modo **conectado**, cada pessoa entra com uma conta própria. As propostas e comentários são sincronizados pelo Firebase em tempo real. Esse é o modo adequado para uso dentro de uma empresa.
+No modo **conectado**, cada pessoa entra com uma conta própria criada pela empresa. O código não inclui contas nem senhas de colaboradores reais. As propostas e comentários são sincronizados pelo Firebase em tempo real. Esse é o modo adequado para uso dentro de uma empresa.
 
 ## Recursos
 
-Colaboradores podem criar propostas, comentar e consultar o histórico das propostas ativas. Supervisores podem aprovar, rejeitar, iniciar a execução, concluir, registrar uma não conclusão com motivo e excluir da lista principal. O motivo fica visível para a equipe. Propostas excluídas e o histórico geral ficam restritos a supervisores.
+Cada proposta registra custo de implantação, retorno esperado, período mensal ou anual e uma explicação para a estimativa. O aplicativo apresenta o retorno nos dois períodos para facilitar a comparação. O gestor da área escolhe de dois a cinco gestores aprovadores; cada um usa a própria conta e registra sua decisão. A execução só pode começar depois de todas as aprovações. Colaboradores podem criar propostas e comentar; o gestor da área acompanha a execução, conclui ou registra a não conclusão com motivo. Propostas excluídas e o histórico geral ficam restritos aos gestores da área.
 
 As permissões são aplicadas nas regras do Firestore, não somente na tela do aplicativo.
 
 ## Aplicativo em funcionamento
 
-Estas são capturas reais do modo offline aberto no navegador, com a tela ajustada para 390 × 844 pixels. A proposta exibida foi criada apenas para as capturas; o aplicativo de demonstração continua sem propostas preenchidas.
+Estas são capturas reais de uma versão anterior do modo offline, aberta no navegador com a tela ajustada para 390 × 844 pixels. O novo fluxo financeiro e de aprovações ainda não aparece nas imagens. A proposta exibida foi criada apenas para as capturas; o aplicativo de demonstração continua sem propostas preenchidas.
 
 | Acesso | Painel do colaborador | Nova proposta |
 | --- | --- | --- |

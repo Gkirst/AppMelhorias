@@ -13,8 +13,13 @@ jobs:
         with:
           node-version: '20'
           cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - run: npm ci
       - run: npm run check
+      - run: npm run test:rules
       - name: Conferir pacote Android de demonstração
         env:
           EXPO_PUBLIC_APP_MODE: offline
