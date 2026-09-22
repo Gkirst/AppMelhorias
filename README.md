@@ -18,13 +18,9 @@ As permissões são aplicadas nas regras do Firestore, não somente na tela do a
 
 Estas são capturas reais de uma versão anterior do modo offline, aberta no navegador com a tela ajustada para 390 × 844 pixels. O novo fluxo financeiro e de aprovações ainda não aparece nas imagens. A proposta exibida foi criada apenas para as capturas; o aplicativo de demonstração continua sem propostas preenchidas.
 
-| Acesso | Painel do colaborador | Nova proposta |
+| Painel do colaborador | Nova proposta | Proposta aguardando análise |
 | --- | --- | --- |
-| <img src="assets/screenshots/01-login-offline.png" width="220" alt="Tela de acesso aos perfis de colaborador e supervisor"> | <img src="assets/screenshots/02-painel-colaborador.png" width="220" alt="Painel do colaborador sem propostas cadastradas"> | <img src="assets/screenshots/03-nova-proposta.png" width="220" alt="Formulário para cadastrar uma proposta de melhoria"> |
-
-| Proposta aguardando análise | Ações do supervisor |
-| --- | --- |
-| <img src="assets/screenshots/04-proposta-aguardando.png" width="220" alt="Proposta de exemplo aguardando análise"> | <img src="assets/screenshots/05-acoes-supervisor.png" width="220" alt="Detalhes e ações disponíveis para o supervisor"> |
+| <img src="assets/screenshots/02-painel-colaborador.png" width="220" alt="Painel do colaborador sem propostas cadastradas"> | <img src="assets/screenshots/03-nova-proposta.png" width="220" alt="Formulário da versão anterior para cadastrar uma proposta"> | <img src="assets/screenshots/04-proposta-aguardando.png" width="220" alt="Proposta de exemplo aguardando análise"> |
 
 As imagens mostram a interface em tamanho de celular, mas não são capturas de um APK instalado no Android.
 
