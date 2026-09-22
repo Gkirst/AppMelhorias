@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function projectPath(pid) { return /databases/$(database)/documents/projects/$(pid); }
+    function eventPath(pid, eid) { return /databases/$(database)/documents/projects/$(pid)/events/$(eid); }
+    function signed() { return request.auth != null; }
+    function member() {
+      return signed() && exists(userPath()) && get(userPath()).data.active == true
+        && get(userPath()).data.role in ['collaborator', 'supervisor'];
+    }
+    function supervisor() { return member() && get(userPath()).data.role == 'supervisor'; }
+    function myName() { return get(userPath()).data.name; }
+    function linkedEvent(pid, eid, kind) {
+      return existsAfter(eventPath(pid, eid))
+        && getAfter(eventPath(pid, eid)).data.type == kind
+        && getAfter(eventPath(pid, eid)).data.actorId == request.auth.uid
+        && getAfter(eventPath(pid, eid)).data.createdAt == request.time;
+    }
+    function projectFields() {
+      return request.resource.data.keys().hasAll([
+        'title', 'description', 'area', 'ownerName', 'authorId', 'authorName',
+        'status', 'archived', 'nonCompletionReason', 'createdAt', 'updatedAt', 'lastActionId'
+      ]) && request.resource.data.keys().hasOnly([
+        'title', 'description', 'area', 'ownerName', 'authorId', 'authorName',
+        'status', 'archived', 'nonCompletionReason', 'createdAt', 'updatedAt', 'lastActionId'
+      ]);
+    }
+    function validText() {
+      return request.resource.data.title is string && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string && request.resource.data.description.size() > 0
+        && request.resource.data.description.size() <= 4000
+        && request.resource.data.area is string && request.resource.data.area.size() > 0
+        && request.resource.data.area.size() <= 120
+        && request.resource.data.ownerName is string && request.resource.data.ownerName.size() > 0
+        && request.resource.data.ownerName.size() <= 120;
+    }
+    function statusTransition() {
+      return (resource.data.status == 'pending' && request.resource.data.status in ['approved', 'rejected'])
+        || (resource.data.status == 'approved' && request.resource.data.status in ['in_progress', 'not_completed'])
+        || (resource.data.status == 'in_progress' && request.resource.data.status in ['completed', 'not_completed']);
+    }
+    function validReason() {
+      return request.resource.data.nonCompletionReason is string
+        && ((request.resource.data.status == 'not_completed'
+          && request.resource.data.nonCompletionReason.size() > 0
+          && request.resource.data.nonCompletionReason.size() <= 2000)
+          || (request.resource.data.status != 'not_completed'
+          && request.resource.data.nonCompletionReason == ''));
+    }
+
+    match /users/{uid} {
+      allow get: if signed() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /projects/{pid} {
+      allow get, list: if member() && (resource.data.archived == false || supervisor());
+      allow create: if member() && projectFields() && validText()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.authorName == myName()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.archived == false
+        && request.resource.data.nonCompletionReason == ''
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastActionId is string
+        && linkedEvent(pid, request.resource.data.lastActionId, 'created');
+      allow update: if supervisor() && projectFields()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'archived', 'nonCompletionReason', 'updatedAt', 'lastActionId'
+        ])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastActionId is string
+        && request.resource.data.lastActionId != resource.data.lastActionId
+        && validReason()
+        && (
+          (resource.data.archived == false && request.resource.data.archived == true
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.nonCompletionReason == resource.data.nonCompletionReason
+            && linkedEvent(pid, request.resource.data.lastActionId, 'archived'))
+          ||
+          (resource.data.archived == false && request.resource.data.archived == false
+            && statusTransition()
+            && linkedEvent(pid, request.resource.data.lastActionId, request.resource.data.status))
+        );
+      allow delete: if false;
+
+      match /events/{eid} {
+        allow get, list: if member()
+          && (get(projectPath(pid)).data.archived == false || supervisor());
+        allow create: if member()
+          && request.resource.data.keys().hasAll(['type', 'actorId', 'actorName', 'detail', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['type', 'actorId', 'actorName', 'detail', 'createdAt'])
+          && request.resource.data.actorId == request.auth.uid
+          && request.resource.data.actorName == myName()
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.detail is string
+          && request.resource.data.detail.size() <= 2000
+          && (
+            (request.resource.data.type == 'observation'
+              && exists(projectPath(pid))
+              && get(projectPath(pid)).data.archived == false
+              && request.resource.data.detail.size() > 0)
+            ||
+            (request.resource.data.type == 'created'
+              && getAfter(projectPath(pid)).data.lastActionId == eid
+              && getAfter(projectPath(pid)).data.createdAt == request.time
+              && getAfter(projectPath(pid)).data.authorId == request.auth.uid
+              && request.resource.data.detail == '')
+            ||
+            (supervisor()
+              && request.resource.data.type in ['approved', 'rejected', 'in_progress', 'completed', 'not_completed', 'archived']
+              && getAfter(projectPath(pid)).data.lastActionId == eid
+              && getAfter(projectPath(pid)).data.updatedAt == request.time
+              && ((request.resource.data.type == 'archived' && getAfter(projectPath(pid)).data.archived == true)
+                || (request.resource.data.type != 'archived' && getAfter(projectPath(pid)).data.status == request.resource.data.type))
+              && ((request.resource.data.type == 'not_completed'
+                && request.resource.data.detail == getAfter(projectPath(pid)).data.nonCompletionReason)
+                || (request.resource.data.type != 'not_completed' && request.resource.data.detail == '')))
+          );
+        allow update, delete: if false;
+      }
+    }
+  }
+}
