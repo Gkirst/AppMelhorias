@@ -16,11 +16,17 @@ As permissões são aplicadas nas regras do Firestore, não somente na tela do a
 
 ## Aplicativo em funcionamento
 
-Estas são capturas reais de uma versão anterior do modo offline, aberta no navegador com a tela ajustada para 390 × 844 pixels. O novo fluxo financeiro e de aprovações ainda não aparece nas imagens. A proposta exibida foi criada apenas para as capturas; o aplicativo de demonstração continua sem propostas preenchidas.
+Estas são capturas atuais do modo offline, aberto no navegador com a tela ajustada para 390 × 844 pixels. A proposta exibida foi criada apenas para mostrar o fluxo nas imagens; o aplicativo de demonstração distribuído continua sem propostas preenchidas.
 
-| Painel do colaborador | Nova proposta | Proposta aguardando análise |
+| Acesso à demonstração | Painel do colaborador | Cadastro da proposta |
 | --- | --- | --- |
-| <img src="assets/screenshots/02-painel-colaborador.png" width="220" alt="Painel do colaborador sem propostas cadastradas"> | <img src="assets/screenshots/03-nova-proposta.png" width="220" alt="Formulário da versão anterior para cadastrar uma proposta"> | <img src="assets/screenshots/04-proposta-aguardando.png" width="220" alt="Proposta de exemplo aguardando análise"> |
+| <img src="assets/screenshots/01-login-offline.png" width="220" alt="Tela de acesso com os quatro perfis de demonstração"> | <img src="assets/screenshots/02-painel-colaborador.png" width="220" alt="Painel do colaborador sem propostas cadastradas"> | <img src="assets/screenshots/03-nova-proposta.png" width="220" alt="Formulário com custo, retorno esperado e período da estimativa"> |
+
+| Resumo financeiro | Escolha dos gestores | Aprovação individual |
+| --- | --- | --- |
+| <img src="assets/screenshots/05-resumo-financeiro.png" width="220" alt="Detalhe de uma proposta com custo e retorno mensal e anual"> | <img src="assets/screenshots/06-escolha-gestores.png" width="220" alt="Gestor da área escolhendo quem aprovará a proposta"> | <img src="assets/screenshots/08-aprovacao-gestor.png" width="220" alt="Ação de aprovação disponível ao gestor designado"> |
+
+[Veja também a proposta aguardando análise e as aprovações pendentes](assets/screenshots/).
 
 As imagens mostram a interface em tamanho de celular, mas não são capturas de um APK instalado no Android.
 
@@ -71,6 +77,8 @@ O perfil `production` gera AAB para distribuição por loja. Caso não tenha Git
 ## Firebase
 
 O guia de implantação está em [docs/IMPLANTACAO-FIREBASE.md](docs/IMPLANTACAO-FIREBASE.md). Ele orienta a criação do projeto, contas de usuários, perfis, regras, testes e distribuição.
+
+O código traz o fluxo atualizado, mas a instalação conectada não fica pronta apenas ao baixar o repositório. A empresa precisa configurar seu projeto Firebase, criar as contas, publicar as regras, vincular a própria conta Expo/EAS, gerar o APK e validar o funcionamento em aparelhos reais. Contas corporativas existentes não entram automaticamente: a versão atual utiliza o login de e-mail e senha do Firebase.
 
 Antes de distribuir, troque o nome, o identificador Android e os arquivos de `assets/` pelos materiais aprovados pela empresa. O ícone atual é apenas um exemplo visual e não concede direito de uso de marcas de terceiros.
 
