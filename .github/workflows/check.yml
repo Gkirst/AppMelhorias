@@ -1,0 +1,21 @@
+name: Verificar aplicativo
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Conferir pacote Android de demonstração
+        env:
+          EXPO_PUBLIC_APP_MODE: offline
+        run: npx expo export --platform android --max-workers 0 --no-bytecode --output-dir dist-check

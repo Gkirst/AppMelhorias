@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Sua empresa - Melhorias",
+    "slug": "painel-de-melhorias",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/app-icon-1024.png",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "br.com.suaempresa.painelmelhorias",
+      "versionCode": 6,
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon-1024.png",
+        "backgroundColor": "#003D6B"
+      }
+    },
+    "plugins": []
+  }
+}
