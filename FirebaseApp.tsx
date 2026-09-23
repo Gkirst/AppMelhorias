@@ -269,7 +269,7 @@ export default function FirebaseApp() {
   }
   async function decision(type: 'rejected' | 'in_progress' | 'completed' | 'not_completed' | 'archived', detail = '') {
     if (!user || !profile || !current) return;
-    if (type === 'completed' ? current.authorId !== user.uid : !canManage) return;
+    if (type === 'completed' || type === 'archived' ? current.authorId !== user.uid : !canManage) return;
     setBusy(true);
     try {
       const projectRef = doc(db, 'projects', current.id);
@@ -287,7 +287,7 @@ export default function FirebaseApp() {
     } catch (error) { showError(error); } finally { setBusy(false); }
   }
   function archive() {
-    Alert.alert('Excluir proposta?', 'Ela sairá da lista principal, mas permanecerá no histórico dos gestores da área.', [
+    Alert.alert('Excluir proposta?', 'Ela sairá da lista principal, mas permanecerá no histórico dos gestores.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Excluir', style: 'destructive', onPress: () => { void decision('archived'); } },
     ]);
@@ -308,7 +308,7 @@ export default function FirebaseApp() {
   return <SafeAreaView style={s.screen}>
     <StatusBar style="light" />
     <LinearGradient colors={[BLUE, '#419978', GREEN]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.header}>
-      <Text style={s.brand}>SUA EMPRESA</Text><Text style={s.headerSub}>Fazer a vida fluir</Text>
+      <Text style={s.brand}>SUA EMPRESA</Text><Text style={s.headerSub}>Ideias que viram ação.</Text>
     </LinearGradient>
     {user && <View style={s.topBar}>
       {(selectedId || creating || showAllHistory || showArchived) && <Pressable onPress={goBack}><Text style={s.link}>‹ Voltar</Text></Pressable>}
@@ -318,6 +318,7 @@ export default function FirebaseApp() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {!user ? scroller(<>
         <Text style={s.heading}>Entrar</Text><Text style={s.sub}>Use sua conta autorizada pela empresa.</Text>
+        <Text style={s.sub}>Em uma implantação com matrícula e senha cadastradas pela empresa, a TI precisará integrar essa forma de acesso. Nesta versão conectada, o login ainda usa e-mail e senha do Firebase.</Text>
         <Text style={s.label}>E-MAIL</Text><TextInput style={s.input} value={email} onChangeText={setEmail}
           keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
         <Text style={[s.label, { marginTop: 14 }]}>SENHA</Text><TextInput style={s.input} value={password} onChangeText={setPassword}
@@ -353,6 +354,11 @@ export default function FirebaseApp() {
       </>) : current ? scroller(<>
         <Pressable onPress={() => { setSelectedId(null); setShowHistory(false); setShowNoComplete(false); }}><Text style={s.link}>‹ Voltar ao painel</Text></Pressable>
         <Text style={s.heading}>{current.title}</Text><Text style={s.badge}>{statuses[current.status]}</Text>
+        <View style={s.card}><Text style={s.cardTitle}>Como funciona a decisão</Text>
+          <Text style={s.sub}>1. Um gestor escolhe de dois a cinco aprovadores ou não aprova a proposta antes de enviá-la.</Text>
+          <Text style={s.sub}>2. Cada gestor escolhido aprova com a própria conta, sem precisar comentar.</Text>
+          <Text style={s.sub}>3. Após todas as aprovações, ela fica em andamento. Só o autor pode concluir; um gestor pode registrar a não conclusão com motivo.</Text>
+        </View>
         {current.archived && <Text style={s.notice}>Proposta excluída · histórico preservado</Text>}
         <Text style={s.label}>SETOR</Text><Text style={s.value}>{current.area}</Text>
         <Text style={s.label}>RESPONSÁVEL</Text><Text style={s.value}>{current.ownerName}</Text>
@@ -391,8 +397,9 @@ export default function FirebaseApp() {
               <Button title="Confirmar não conclusão" onPress={() => { if (!reason.trim()) Alert.alert('Motivo obrigatório', 'Informe por que a proposta não será concluída.'); else void decision('not_completed', reason.trim()); }} disabled={busy} /></>}
           </>}
           {['rejected', 'completed', 'not_completed'].includes(current.status) && <Text style={s.value}>Esta proposta está encerrada.</Text>}
-          <Button title="Excluir proposta" onPress={archive} danger disabled={busy} />
         </View>}
+        {current.authorId === user.uid && !current.archived
+          && <Button title="Excluir minha proposta" onPress={archive} danger disabled={busy} />}
         {current.status === 'in_progress' && current.authorId === user.uid && !current.archived
           && <Button title="Concluir proposta" onPress={() => { void decision('completed'); }} disabled={busy} />}
         <Text style={s.section}>Observações</Text>
@@ -410,6 +417,10 @@ export default function FirebaseApp() {
         </View>)}
       </>) : scroller(<>
         <Text style={s.heading}>Painel de melhorias</Text><Text style={s.sub}>Propostas e andamento da fábrica.</Text>
+        <View style={s.card}><Text style={s.cardTitle}>Etapas da proposta</Text>
+          <Text style={s.sub}>Criar → escolher gestores → cada um aprova → em andamento → autor conclui.</Text>
+          <Text style={s.sub}>Antes das aprovações, um gestor pode não aprovar. Se a execução parar, um gestor registra o motivo da não conclusão.</Text>
+        </View>
         <Button title="+ Propor melhoria" onPress={() => { resetForm(); setCreating(true); }} />
         {canManage && <Button title={showArchived ? 'Ver propostas ativas' : 'Ver propostas excluídas'}
           onPress={() => setShowArchived(!showArchived)} outline />}

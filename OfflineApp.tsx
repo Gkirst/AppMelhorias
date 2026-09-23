@@ -13,7 +13,7 @@ type Status = 'pending' | 'review' | 'in_progress' | 'completed' | 'not_complete
 type Approval = { manager: Manager; approvedAt: string | null };
 type Project = {
   id: string; title: string; description: string; area: string; owner: string;
-  author: Role; status: Status; reason: string; comments: string[];
+  author: Role; status: Status; reason: string; comments: string[]; archived?: boolean;
   costCents: number; returnCents: number; returnPeriod: 'month' | 'year';
   estimateNotes: string; approvals: Approval[]; history: string[];
 };
@@ -53,7 +53,7 @@ function Input({ value, onChange, placeholder, multi = false, numeric = false, s
 }
 function Header() {
   return <LinearGradient colors={['#2279A9', '#419978', '#78B32F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.header}>
-    <StatusBar style="light" /><Text style={s.brand}>SUA EMPRESA</Text><Text style={s.subWhite}>Fazer a vida fluir</Text>
+    <StatusBar style="light" /><Text style={s.brand}>SUA EMPRESA</Text><Text style={s.subWhite}>Ideias que viram ação.</Text>
   </LinearGradient>;
 }
 
@@ -132,6 +132,7 @@ export default function OfflineApp() {
   if (!role && !loginRole) return screen(<>
     <Text style={s.title}>Quem vai acessar?</Text><Text style={s.copy}>Escolha um perfil de demonstração. Nenhuma informação é enviada para a empresa.</Text>
     <View style={s.notice}><Text style={s.noticeText}>TESTE OFFLINE · Os dados ficam somente neste aparelho.</Text></View>
+    <Text style={s.copy}>Na empresa, a TI poderá liberar o acesso por matrícula e senha cadastradas no sistema. Aqui usamos apenas perfis e senhas de demonstração.</Text>
     {accounts.map(account => <Button key={account.id} text={account.name} outline onPress={() => setLoginRole(account.id)} />)}
   </>);
   if (!role && loginRole) return screen(<>
@@ -175,6 +176,11 @@ export default function OfflineApp() {
       <Pressable onPress={back}><Text style={s.link}>‹ Voltar ao painel</Text></Pressable>
       <View style={s.notice}><Text style={s.noticeText}>TESTE OFFLINE · As decisões são apenas para demonstração.</Text></View>
       <Text style={s.title}>{selected.title}</Text><Text style={s.badge}>{statuses[selected.status]}</Text>
+      <View style={s.card}><Text style={s.cardTitle}>Como funciona a decisão</Text>
+        <Text style={s.copy}>1. Um gestor escolhe pelo menos dois aprovadores ou não aprova a proposta antes de enviá-la.</Text>
+        <Text style={s.copy}>2. Cada gestor escolhido aprova com o próprio acesso, sem precisar comentar.</Text>
+        <Text style={s.copy}>3. Após todas as aprovações, ela fica em andamento. Só quem criou pode concluir; um gestor pode registrar a não conclusão com motivo.</Text>
+      </View>
       <Text style={s.copy}>{selected.area} · Responsável: {selected.owner}</Text><Text style={s.copy}>{selected.description}</Text>
       <View style={s.card}><Text style={s.cardTitle}>Estimativa financeira</Text>
         <Text style={s.copy}>Custo: {money(selected.costCents)}</Text>
@@ -197,6 +203,7 @@ export default function OfflineApp() {
           action(selected, 'Aprovadores escolhidos', { status: 'review', approvals: chosen.map(manager => ({ manager, approvedAt: null })) });
           setChosen([]);
         }} />
+        <Button text="Não aprovar proposta" outline onPress={() => action(selected, 'Proposta não aprovada', { status: 'rejected' })} />
       </View>}
       {canManage && pendingForMe && selected.status === 'review' && <><Text style={s.copy}>Você pode aprovar sem publicar comentário.</Text><Button text="Aprovar proposta" onPress={() => {
         const approvals = selected.approvals.map(approval => approval.manager === role
@@ -213,6 +220,17 @@ export default function OfflineApp() {
         }} />
       </>}
       {selected.reason ? <Text style={s.reason}>Motivo: {selected.reason}</Text> : null}
+      {role === selected.author && <Button text="Excluir minha proposta" outline onPress={() => {
+        Alert.alert('Excluir proposta?', 'Ela sairá da lista, mas o registro ficará guardado neste aparelho.', [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir', style: 'destructive', onPress: () => {
+            setItems(current => current.map(item => item.id === selected.id ? {
+              ...item, archived: true, history: [...item.history, `${stamp()} · Proposta excluída pelo autor`],
+            } : item));
+            setSelected(null);
+          } },
+        ]);
+      }} />}
       <Text style={s.section}>Comentários</Text>
       {selected.comments.map((entry, index) => <Text key={index} style={s.copy}>• {entry}</Text>)}
       <Input value={comment} onChange={setComment} placeholder="Adicionar comentário (opcional)" multi />
@@ -226,24 +244,29 @@ export default function OfflineApp() {
     </>);
   }
 
+  const activeItems = items.filter(item => !item.archived);
   const counts = [
-    { title: 'Aguardando', count: items.filter(item => item.status === 'pending' || item.status === 'review').length, color: '#D19B35' },
-    { title: 'Em andamento', count: items.filter(item => item.status === 'in_progress').length, color: '#2279A9' },
-    { title: 'Finalizadas', count: items.filter(item => item.status === 'completed').length, color: '#78B32F' },
-    { title: 'Não concluídas', count: items.filter(item => item.status === 'not_completed' || item.status === 'rejected').length, color: '#A75656' },
+    { title: 'Aguardando', count: activeItems.filter(item => item.status === 'pending' || item.status === 'review').length, color: '#D19B35' },
+    { title: 'Em andamento', count: activeItems.filter(item => item.status === 'in_progress').length, color: '#2279A9' },
+    { title: 'Finalizadas', count: activeItems.filter(item => item.status === 'completed').length, color: '#78B32F' },
+    { title: 'Não concluídas', count: activeItems.filter(item => item.status === 'not_completed' || item.status === 'rejected').length, color: '#A75656' },
   ];
   return screen(<>
     <View style={s.top}><Text style={s.title}>Painel de melhorias</Text><Pressable onPress={() => { setRole(null); setSelected(null); closeForm(); }}><Text style={s.link}>Sair</Text></Pressable></View>
     <View style={s.notice}><Text style={s.noticeText}>TESTE OFFLINE · Cada aparelho tem seus próprios dados. Nada é sincronizado.</Text></View>
+    <View style={s.card}><Text style={s.cardTitle}>Etapas da proposta</Text>
+      <Text style={s.copy}>Criar → escolher gestores → cada um aprova → em andamento → autor conclui.</Text>
+      <Text style={s.copy}>Antes das aprovações, um gestor pode não aprovar. Se a execução parar, um gestor registra o motivo da não conclusão.</Text>
+    </View>
     <Button text="+ Propor melhoria" onPress={() => { setForm(emptyForm()); setFormOpen(true); }} />
     <View style={s.card}><Text style={s.cardTitle}>Andamento das propostas</Text>
       {counts.map(item => <View key={item.title} style={s.chartRow}>
         <Text style={s.chartLabel}>{item.title} · {item.count}</Text>
-        <View style={s.track}><View style={[s.bar, { backgroundColor: item.color, width: `${items.length ? Math.round(item.count / items.length * 100) : 0}%` }]} /></View>
+        <View style={s.track}><View style={[s.bar, { backgroundColor: item.color, width: `${activeItems.length ? Math.round(item.count / activeItems.length * 100) : 0}%` }]} /></View>
       </View>)}
     </View>
-    {items.length === 0 ? <Text style={s.copy}>Nenhuma proposta criada neste aparelho. Comece um novo teste.</Text>
-      : items.map(item => <Pressable style={s.card} key={item.id} onPress={() => setSelected(item)}>
+    {activeItems.length === 0 ? <Text style={s.copy}>Nenhuma proposta criada neste aparelho. Comece um novo teste.</Text>
+      : activeItems.map(item => <Pressable style={s.card} key={item.id} onPress={() => setSelected(item)}>
         <Text style={s.cardTitle}>{item.title}</Text><Text style={s.badge}>{statuses[item.status]}</Text>
       </Pressable>)}
   </>);

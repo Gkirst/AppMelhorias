@@ -27,7 +27,7 @@ Crie os usuários na área **Authentication → Users**. Para cada UID criado, a
 
 Use `"role": "area_manager"` ou `"role": "manager"` para os gestores. Os dois perfis têm os mesmos privilégios de gestão no aplicativo. Cada pessoa precisa da própria conta e UID. A matrícula (`employeeNumber`) deve ser única. Preencha `department` com o setor do gestor responsável: esse nome aparecerá no cadastro da proposta. O UID do documento precisa ser exatamente o UID do Authentication. Se `active` for `false` ou o documento não existir, a conta não acessa os dados. Não dê a colaboradores acesso ao console Firebase; as permissões do app são diferentes das permissões administrativas do console.
 
-Os usuários ativos conseguem consultar nomes, matrículas, departamentos, papéis e e-mails dos perfis internos. Cadastre apenas informações profissionais necessárias. O autor busca um gestor pela matrícula ao criar a proposta. Depois, qualquer gestor ativo busca pela matrícula e escolhe de dois a cinco aprovadores. Não há uma lista fixa. Cada aprovador confirma com a própria conta, sem precisar publicar comentário. Após a última aprovação, a proposta entra automaticamente em **Em andamento**. Somente o autor pode marcá-la como **Concluída**. Gestores podem registrar a não conclusão com motivo.
+Os usuários ativos conseguem consultar nomes, matrículas, departamentos, papéis e e-mails dos perfis internos. Cadastre apenas informações profissionais necessárias. O autor busca um gestor pela matrícula ao criar a proposta. Depois, qualquer gestor ativo busca pela matrícula e escolhe de dois a cinco aprovadores. Antes disso, pode marcar **Não aprovar**. Não há uma lista fixa. Cada aprovador confirma com a própria conta, sem precisar publicar comentário. Após a última aprovação, a proposta entra automaticamente em **Em andamento**. Somente o autor pode marcá-la como **Concluída** ou excluí-la. Gestores podem registrar a não conclusão com motivo.
 
 O app não cria contas nem altera papéis. Para muitos usuários, a TI pode automatizar o provisionamento com ferramentas administrativas próprias, depois de revisar o processo.
 
@@ -68,7 +68,7 @@ Use pelo menos quatro contas (colaborador, gestor da área e dois gestores aprov
 3. O primeiro gestor aprova; a execução ainda deve estar bloqueada. Uma tentativa de aprovar usando a conta de outro gestor deve ser negada pelas regras.
 4. O segundo gestor aprova sem comentar; a proposta passa automaticamente para **Em andamento**. O autor conclui a execução, e cada ação aparece no histórico.
 5. Em outra proposta, um gestor escolhe **Não concluir** sem motivo: o app bloqueia. Com motivo, todos veem a explicação e podem comentar.
-6. Um gestor exclui uma proposta: ela desaparece para colaboradores, mas permanece em **Propostas excluídas** e no histórico geral dos gestores.
+6. Um gestor tenta excluir a proposta de outra pessoa: a ação deve ser negada. O autor exclui a própria proposta: ela desaparece para colaboradores, mas permanece em **Propostas excluídas** e no histórico geral dos gestores.
 7. Desative uma conta em `users/{uid}` e confirme que ela deixa de ler e gravar dados.
 8. Feche e reabra o app, teste a senha visível/oculta, o teclado em formulários longos e os dois toques em Voltar no Android.
 

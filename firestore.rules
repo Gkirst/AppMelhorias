@@ -161,7 +161,7 @@ service cloud.firestore {
             ])
             && linkedEvent(pid, request.resource.data.lastActionId, 'completed'))
           ||
-          (areaManager()
+          (resource.data.authorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'archived', 'updatedAt', 'lastActionId'
             ])
@@ -208,7 +208,7 @@ service cloud.firestore {
               && getAfter(projectDoc(pid)).data.updatedAt == request.time)
             ||
             (request.resource.data.type in ['rejected', 'in_progress', 'completed', 'not_completed', 'archived']
-              && (request.resource.data.type == 'completed'
+              && (request.resource.data.type in ['completed', 'archived']
                 ? getAfter(projectDoc(pid)).data.authorId == request.auth.uid
                 : manager())
               && getAfter(projectDoc(pid)).data.lastActionId == eid

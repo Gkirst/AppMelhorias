@@ -47,6 +47,16 @@ function completionBatch(uid) {
     detail: '', createdAt: serverTimestamp() });
   return batch.commit();
 }
+function archiveBatch(uid) {
+  const database = client(uid);
+  const project = doc(database, 'projects', projectId);
+  const event = doc(collection(project, 'events'));
+  const batch = writeBatch(database);
+  batch.update(project, { archived: true, updatedAt: serverTimestamp(), lastActionId: event.id });
+  batch.set(event, { type: 'archived', actorId: uid, actorName: profiles[uid].name,
+    detail: '', createdAt: serverTimestamp() });
+  return batch.commit();
+}
 
 before(async () => {
   environment = await initializeTestEnvironment({
@@ -84,4 +94,12 @@ test('somente o autor conclui após todas as aprovações', async () => {
   await assertSucceeds(approvalBatch('managerTwo', { managerOne: 'approved', managerTwo: 'approved' }, 'in_progress'));
   await assertFails(completionBatch('area'));
   await assertSucceeds(completionBatch('employee'));
+});
+
+test('somente o autor exclui, com histórico preservado', async () => {
+  await assertFails(archiveBatch('area'));
+  await assertFails(archiveBatch('managerOne'));
+  await assertSucceeds(archiveBatch('employee'));
+  await assertFails(getDoc(doc(client('employee'), 'projects', projectId)));
+  await assertSucceeds(getDoc(doc(client('area'), 'projects', projectId)));
 });
