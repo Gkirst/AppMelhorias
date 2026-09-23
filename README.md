@@ -18,17 +18,23 @@ As permissões são aplicadas nas regras do Firestore, não somente na tela do a
 
 ## Aplicativo em funcionamento
 
-Estas capturas mostram o fluxo offline no navegador, com a tela ajustada para 390 × 844 pixels. Foram feitas antes dos ajustes mais recentes de contraste, navegação e do texto abaixo do nome da empresa; por isso, alguns detalhes visuais podem estar diferentes. A proposta exibida foi criada apenas para mostrar o fluxo nas imagens; o aplicativo de demonstração distribuído continua sem propostas preenchidas.
+Estas imagens foram feitas agora, com a versão atual do aplicativo aberta no navegador em uma tela de 390 × 844 pixels. Criei uma proposta de exemplo somente para mostrar o caminho completo; ao instalar o aplicativo para começar os testes, ele não vem com essa proposta cadastrada.
 
-| Acesso à demonstração | Painel do colaborador | Cadastro da proposta |
+| Escolha do perfil | Senha de demonstração | Painel e andamento |
 | --- | --- | --- |
-| <img src="assets/screenshots/01-login-offline.png" width="220" alt="Tela de acesso com os quatro perfis de demonstração"> | <img src="assets/screenshots/02-painel-colaborador.png" width="220" alt="Painel do colaborador sem propostas cadastradas"> | <img src="assets/screenshots/03-nova-proposta.png" width="220" alt="Formulário com custo, retorno esperado e período da estimativa"> |
+| <img src="assets/screenshots/01-login-offline.jpg" width="220" alt="Tela inicial com escolha entre colaborador e três perfis de gestor"> | <img src="assets/screenshots/02-acesso-colaborador.jpg" width="220" alt="Senha de demonstração solicitada após a escolha do perfil"> | <img src="assets/screenshots/03-painel-colaborador.jpg" width="220" alt="Painel com as etapas e o gráfico de andamento das propostas"> |
 
-| Resumo financeiro | Escolha dos gestores | Aprovação individual |
+| Nova proposta | Custo e retorno | Etapas da decisão |
 | --- | --- | --- |
-| <img src="assets/screenshots/05-resumo-financeiro.png" width="220" alt="Detalhe de uma proposta com custo e retorno mensal e anual"> | <img src="assets/screenshots/06-escolha-gestores.png" width="220" alt="Gestor da área escolhendo quem aprovará a proposta"> | <img src="assets/screenshots/08-aprovacao-gestor.png" width="220" alt="Ação de aprovação disponível ao gestor designado"> |
+| <img src="assets/screenshots/04-nova-proposta.jpg" width="220" alt="Formulário da nova proposta com título, descrição, setor e responsável"> | <img src="assets/screenshots/05-resumo-financeiro.jpg" width="220" alt="Estimativa de custo e retorno com período, origem dos valores e botão Enviar proposta"> | <img src="assets/screenshots/06-proposta-aguardando.jpg" width="220" alt="Detalhe da proposta explicando as etapas de aprovação"> |
 
-[Veja também a proposta aguardando análise e as aprovações pendentes](assets/screenshots/).
+| Ações do autor | Escolha dos gestores | Aprovação individual |
+| --- | --- | --- |
+| <img src="assets/screenshots/07-acoes-do-autor.jpg" width="220" alt="Autor pode excluir a própria proposta e acompanhar comentários e histórico"> | <img src="assets/screenshots/08-escolha-gestores.jpg" width="220" alt="Gestor escolhe pelo menos dois aprovadores ou não aprova a proposta"> | <img src="assets/screenshots/09-aprovacao-individual.jpg" width="220" alt="Gestor designado pode aprovar sem comentário obrigatório"> |
+
+| Em andamento | Conclusão pelo autor | Painel após a conclusão |
+| --- | --- | --- |
+| <img src="assets/screenshots/10-em-andamento.jpg" width="220" alt="Aprovações registradas e campo para justificar uma eventual não conclusão"> | <img src="assets/screenshots/11-conclusao-pelo-autor.jpg" width="220" alt="Apenas quem criou a proposta pode marcá-la como concluída"> | <img src="assets/screenshots/12-painel-com-conclusao.jpg" width="220" alt="Gráfico atualizado após a conclusão da proposta"> |
 
 As imagens mostram a interface em tamanho de celular, mas não são capturas de um APK instalado no Android.
 
