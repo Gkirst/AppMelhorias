@@ -102,6 +102,18 @@ export default function FirebaseApp() {
   const [observation, setObservation] = useState('');
   const [reason, setReason] = useState('');
   const lastBackPress = useRef(0);
+  const navigation = useRef({ selectedId, creating, showHistory, showNoComplete, showAllHistory, showArchived });
+  navigation.current = { selectedId, creating, showHistory, showNoComplete, showAllHistory, showArchived };
+  const goBack = () => {
+    const page = navigation.current;
+    if (page.showNoComplete) { setShowNoComplete(false); return true; }
+    if (page.showHistory) { setShowHistory(false); return true; }
+    if (page.selectedId) { setSelectedId(null); setChosenApprovers([]); return true; }
+    if (page.creating) { setCreating(false); return true; }
+    if (page.showAllHistory) { setShowAllHistory(false); return true; }
+    if (page.showArchived) { setShowArchived(false); return true; }
+    return false;
+  };
 
   useEffect(() => {
     let stopProfile = () => {};
@@ -153,8 +165,7 @@ export default function FirebaseApp() {
       const time = Date.now();
       if (time - lastBackPress.current < 2000) { BackHandler.exitApp(); return true; }
       lastBackPress.current = time;
-      setSelectedId(null); setCreating(false); setShowHistory(false); setShowNoComplete(false);
-      if (Platform.OS === 'android') ToastAndroid.show('Toque em voltar novamente para sair', ToastAndroid.SHORT);
+      if (!goBack() && Platform.OS === 'android') ToastAndroid.show('Toque em voltar novamente para sair', ToastAndroid.SHORT);
       return true;
     });
     return () => sub.remove();
@@ -289,9 +300,10 @@ export default function FirebaseApp() {
   return <SafeAreaView style={s.screen}>
     <StatusBar style="light" />
     <LinearGradient colors={[BLUE, '#419978', GREEN]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.header}>
-      <Text style={s.brand}>SUA EMPRESA</Text><Text style={s.headerSub}>Ideias que movem a operação</Text>
+      <Text style={s.brand}>SUA EMPRESA</Text><Text style={s.headerSub}>Fazer a vida fluir</Text>
     </LinearGradient>
     {user && <View style={s.topBar}>
+      {(selectedId || creating || showAllHistory || showArchived) && <Pressable onPress={goBack}><Text style={s.link}>‹ Voltar</Text></Pressable>}
       <Text style={s.meta}>{profile?.active ? `Olá, ${profile.name.split(' ')[0]}` : 'Acesso pendente'}</Text>
       <Pressable onPress={logout}><Text style={s.link}>Sair</Text></Pressable>
     </View>}
@@ -304,6 +316,7 @@ export default function FirebaseApp() {
           secureTextEntry={!showPassword} autoCapitalize="none" autoComplete="password" />
         <Pressable onPress={() => setShowPassword(!showPassword)}><Text style={s.link}>{showPassword ? 'Ocultar senha' : 'Mostrar senha'}</Text></Pressable>
         <Button title={busy ? 'Entrando...' : 'Entrar'} onPress={login} disabled={busy} />
+        <Button title="Sair do aplicativo" outline onPress={() => Platform.OS === 'android' ? BackHandler.exitApp() : Alert.alert('Feche esta janela para sair.')} />
       </>) : !profile?.active ? scroller(<>
         <Text style={s.heading}>Acesso não liberado</Text>
         <Text style={s.sub}>Sua conta não tem um perfil ativo neste projeto. Peça à TI para conferir seu cadastro.</Text>

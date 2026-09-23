@@ -2,6 +2,7 @@ node_modules/
 .expo/
 dist/
 dist-check/
+.expo-export-check/
 android/
 ios/
 .env

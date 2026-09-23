@@ -16,7 +16,7 @@ As permissões são aplicadas nas regras do Firestore, não somente na tela do a
 
 ## Aplicativo em funcionamento
 
-Estas são capturas atuais do modo offline, aberto no navegador com a tela ajustada para 390 × 844 pixels. A proposta exibida foi criada apenas para mostrar o fluxo nas imagens; o aplicativo de demonstração distribuído continua sem propostas preenchidas.
+Estas capturas mostram o fluxo offline no navegador, com a tela ajustada para 390 × 844 pixels. Foram feitas antes dos ajustes mais recentes de contraste, navegação e do texto abaixo do nome da empresa; por isso, alguns detalhes visuais podem estar diferentes. A proposta exibida foi criada apenas para mostrar o fluxo nas imagens; o aplicativo de demonstração distribuído continua sem propostas preenchidas.
 
 | Acesso à demonstração | Painel do colaborador | Cadastro da proposta |
 | --- | --- | --- |
