@@ -51,28 +51,54 @@ Para conferir o código:
 npm run check
 ```
 
-## Gerar APK
+## Gerar um APK de demonstração no Windows
 
-Vincule o projeto à sua conta Expo/EAS:
+O APK deste passo a passo funciona **offline**: cada celular guarda seus próprios dados, sem sincronizar propostas com os outros. Para apresentar o app e conhecer as telas, não é necessário criar um Firebase.
+
+1. Instale o [Node.js](https://nodejs.org/) no computador e crie uma conta gratuita no [Expo](https://expo.dev/signup). Depois de instalar o Node.js, feche e abra o Prompt de Comando novamente.
+2. Baixe este projeto pelo botão **Code → Download ZIP** no GitHub e extraia o ZIP. Abra a pasta extraída no Explorador de Arquivos, clique na barra de endereço, copie o caminho e use-o no comando abaixo. O caminho é só um exemplo: substitua pelo caminho real da sua pasta.
+3. Abra o **Prompt de Comando (CMD)**. Não rode os comandos em `C:\Windows\System32`: primeiro entre na pasta que contém `package.json`.
 
 ```bat
+cd /d "C:\Users\SEU_USUARIO\Downloads\AppMelhorias-main"
+dir package.json
+npm ci
+```
+
+Se `dir package.json` disser que o arquivo não existe, você ainda não está na pasta certa. Confira se o ZIP foi extraído e copie novamente o caminho da pasta onde aparece `package.json`.
+
+4. Ainda **na mesma janela do CMD**, entre na sua conta Expo e vincule esta cópia do projeto à sua conta:
+
+```bat
+set EAS_NO_VCS=1
 npx eas-cli login
 npx eas-cli build:configure
 ```
 
-APK offline para demonstração:
+Se o EAS perguntar qual conta será dona do projeto, escolha a **sua conta Expo**. Se pedir para criar ou vincular um projeto, confirme a criação na sua conta. No primeiro build, ele também pode perguntar sobre a chave de assinatura do Android; para uma demonstração nova, aceite a opção de gerar uma chave.
+
+5. Gere o APK:
 
 ```bat
 npx eas-cli build --platform android --profile offline
 ```
 
-APK conectado para teste interno, depois de configurar `EXPO_PUBLIC_FIREBASE_*` no ambiente `preview` da EAS:
+O serviço mostrará um link para acompanhar o andamento. Quando terminar, abra esse link, baixe o arquivo **`.apk`**, envie-o para o celular Android e abra o arquivo no aparelho para instalar. O Android pode pedir autorização para instalar aplicativos dessa origem; conceda-a apenas se você reconhece o APK que acabou de gerar. A geração acontece na nuvem e pode demorar alguns minutos. Não é preciso deixar o Node.js aberto depois que o APK estiver instalado.
+
+**Importante:** se você fechar a janela do Prompt de Comando, a variável `EAS_NO_VCS=1` é apagada. Caso abra um CMD novo para continuar depois, entre novamente na pasta do projeto e digite `set EAS_NO_VCS=1` antes de rodar os comandos do EAS. Se aparecer `Run this command inside a project directory`, o CMD está na pasta errada; volte ao passo 3. Se surgir um erro relacionado a Git, confira se executou `set EAS_NO_VCS=1` nessa mesma janela.
+
+Para abrir o app offline, use os acessos de demonstração descritos em [Modos disponíveis](#modos-disponíveis). Essas senhas não devem ser usadas na versão de uma empresa.
+
+### APK conectado para teste na empresa
+
+Esta etapa depende da configuração feita pela TI no [guia de implantação](docs/IMPLANTACAO-FIREBASE.md). Depois de criar o Firebase, as contas, as regras e as variáveis `EXPO_PUBLIC_FIREBASE_*` no ambiente `preview` do EAS, rode, na pasta do projeto:
 
 ```bat
+set EAS_NO_VCS=1
 npx eas-cli build --platform android --profile preview
 ```
 
-O perfil `production` gera AAB para distribuição por loja. Caso não tenha Git instalado, execute `set EAS_NO_VCS=1` na mesma janela antes do build.
+O perfil `production` gera um **AAB** para a loja, não um APK para instalar diretamente no celular. O APK de teste não se atualiza sozinho nos aparelhos: a empresa precisa planejar como distribuir novas versões.
 
 ## Firebase
 
