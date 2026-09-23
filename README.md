@@ -12,7 +12,7 @@ No modo **conectado**, cada pessoa entra com uma conta própria criada pela empr
 
 Cada proposta registra custo de implantação, retorno esperado, período mensal ou anual e uma explicação para a estimativa. Os valores são digitados em reais, somente com números e sem centavos. O aplicativo apresenta o retorno nos dois períodos para facilitar a comparação. Um gestor escolhe de dois a cinco aprovadores ou não aprova a proposta antes dessa escolha. Cada aprovador usa a própria conta e pode aprovar sem publicar comentário. Após a última aprovação, a proposta passa automaticamente para **Em andamento**. Somente quem criou a proposta pode concluí-la ou excluí-la. Os gestores podem registrar a não conclusão com motivo. Propostas excluídas e o histórico geral ficam restritos aos gestores. O painel mostra um gráfico simples com os totais por situação.
 
-Na demonstração offline, a tela informa que os dados não são sincronizados. O perfil é escolhido antes da senha. Esta versão começa sem propostas de demonstração; propostas de testes antigos ficam fora da lista atual. Ao sair de **Nova proposta**, o formulário é limpo. No Firebase, a seleção de gestores é feita por busca da matrícula cadastrada pela TI. O login conectado, porém, ainda é por e-mail e senha; acesso com matrícula e senha da empresa exigirá integração específica da TI.
+Na demonstração offline, a tela informa que os dados não são sincronizados. O perfil é escolhido antes da senha. Esta versão começa sem propostas de demonstração; propostas de testes antigos ficam fora da lista atual. Ao sair de **Nova proposta**, o formulário é limpo. No Firebase, o autor seleciona o colaborador responsável pela matrícula e os gestores aprovadores também são encontrados pela matrícula cadastrada pela TI. O login conectado, porém, ainda é por e-mail e senha; acesso com matrícula e senha da empresa exigirá integração específica da TI.
 
 As permissões são aplicadas nas regras do Firestore, não somente na tela do aplicativo.
 
@@ -52,6 +52,8 @@ Para usar o modo conectado, copie `.env.example` para `.env`, preencha os valore
 set EXPO_PUBLIC_APP_MODE=firebase
 npm start
 ```
+
+Se quiser ver a versão conectada sem criar um projeto na nuvem, siga o [teste com Firebase local](docs/TESTE-LOCAL-FIREBASE.md). Ele usa contas fictícias e mostra as propostas sincronizadas no mesmo computador.
 
 Para conferir o código:
 
@@ -95,7 +97,7 @@ npx eas-cli build --platform android --profile offline
 
 O serviço mostrará um link para acompanhar o andamento. Quando terminar, abra esse link, baixe o arquivo **`.apk`**, envie-o para o celular Android e abra o arquivo no aparelho para instalar. O Android pode pedir autorização para instalar aplicativos dessa origem; conceda-a apenas se você reconhece o APK que acabou de gerar. A geração acontece na nuvem e pode demorar alguns minutos. Não é preciso deixar o Node.js aberto depois que o APK estiver instalado.
 
-Esta atualização usa a versão **2.0.1 (código Android 7)**. Se um APK anterior estiver instalado, tente instalar o novo por cima. Se o Android disser que o aplicativo não pode ser atualizado, a assinatura ou o identificador do app pode ser diferente. Nesse caso, não desinstale o antigo sem antes conferir se há propostas offline que você queira guardar: os dados locais podem ser perdidos na desinstalação.
+Esta atualização usa a versão **2.1.1 (código Android 9)**. Se um APK anterior estiver instalado, tente instalar o novo por cima. Se o Android disser que o aplicativo não pode ser atualizado, a assinatura ou o identificador do app pode ser diferente. Nesse caso, não desinstale o antigo sem antes conferir se há propostas offline que você queira guardar: os dados locais podem ser perdidos na desinstalação.
 
 **Importante:** se você fechar a janela do Prompt de Comando, a variável `EAS_NO_VCS=1` é apagada. Caso abra um CMD novo para continuar depois, entre novamente na pasta do projeto e digite `set EAS_NO_VCS=1` antes de rodar os comandos do EAS. Se aparecer `Run this command inside a project directory`, o CMD está na pasta errada; volte ao passo 3. Se surgir um erro relacionado a Git, confira se executou `set EAS_NO_VCS=1` nessa mesma janela.
 

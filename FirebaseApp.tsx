@@ -20,7 +20,7 @@ type Status = 'pending' | 'review' | 'approved' | 'rejected' | 'in_progress' | '
 type Project = {
   id: string; title: string; description: string; area: string; ownerName: string;
   authorId: string; authorName: string; status: Status; archived: boolean;
-  areaManagerId: string; approverIds: string[]; approvalStates: Record<string, 'pending' | 'approved'>;
+  responsibleCollaboratorId: string; approverIds: string[]; approvalStates: Record<string, 'pending' | 'approved'>;
   costCents: number; returnCents: number; returnPeriod: 'month' | 'year'; estimateNotes: string;
   nonCompletionReason: string; createdAt?: Timestamp; updatedAt?: Timestamp; lastActionId: string;
 };
@@ -46,9 +46,11 @@ function displayDate(value?: Timestamp) {
 }
 function showError(error: unknown) {
   const code = (error as { code?: string })?.code;
-  const message = code === 'permission-denied' ? 'Você não tem permissão para esta ação. Peça ajuda à TI.'
+  const message = code === 'permission-denied' ? 'Ação negada pelo Firebase. Confirme com a TI se os perfis estão ativos e se as regras foram atualizadas.'
     : code === 'auth/invalid-credential' ? 'E-mail ou senha incorretos.'
     : code === 'auth/too-many-requests' ? 'Muitas tentativas. Aguarde um pouco e tente novamente.'
+    : code === 'unavailable' && process.env.EXPO_PUBLIC_FIREBASE_EMULATOR === 'true'
+      ? 'O Firebase local não está disponível. Inicie os emuladores de Authentication e Firestore no computador.'
     : 'Não foi possível concluir. Confira a internet e tente novamente.';
   Alert.alert('Atenção', message);
 }
@@ -91,11 +93,9 @@ export default function FirebaseApp() {
   const [showNoComplete, setShowNoComplete] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [area, setArea] = useState('');
-  const [areaManagerId, setAreaManagerId] = useState('');
-  const [managerLookup, setManagerLookup] = useState('');
+  const [responsibleCollaboratorId, setResponsibleCollaboratorId] = useState('');
+  const [collaboratorLookup, setCollaboratorLookup] = useState('');
   const [approverLookup, setApproverLookup] = useState('');
-  const [ownerName, setOwnerName] = useState('');
   const [cost, setCost] = useState('');
   const [expectedReturn, setExpectedReturn] = useState('');
   const [returnPeriod, setReturnPeriod] = useState<'month' | 'year'>('month');
@@ -107,8 +107,8 @@ export default function FirebaseApp() {
   const navigation = useRef({ selectedId, creating, showHistory, showNoComplete, showAllHistory, showArchived });
   navigation.current = { selectedId, creating, showHistory, showNoComplete, showAllHistory, showArchived };
   const resetForm = () => {
-    setTitle(''); setDescription(''); setArea(''); setAreaManagerId(''); setManagerLookup('');
-    setOwnerName(''); setCost(''); setExpectedReturn(''); setReturnPeriod('month'); setEstimateNotes('');
+    setTitle(''); setDescription(''); setResponsibleCollaboratorId(''); setCollaboratorLookup('');
+    setCost(''); setExpectedReturn(''); setReturnPeriod('month'); setEstimateNotes('');
   };
   const goBack = () => {
     const page = navigation.current;
@@ -146,7 +146,7 @@ export default function FirebaseApp() {
     if (!user || !profile?.active) { setDirectory([]); return; }
     return onSnapshot(collection(db, 'users'), snap => {
       setDirectory(snap.docs.map(item => ({ id: item.id, ...item.data() } as DirectoryPerson))
-        .filter(person => person.active && (person.role === 'area_manager' || person.role === 'manager')));
+        .filter(person => person.active));
     }, showError);
   }, [user?.uid, profile?.active]);
   useEffect(() => {
@@ -180,6 +180,10 @@ export default function FirebaseApp() {
   const current = projects.find(item => item.id === selectedId && (!item.archived || profile?.role !== 'collaborator'));
   const canManage = profile?.role === 'area_manager' || profile?.role === 'manager';
   const areaManagers = directory.filter(person => person.role === 'area_manager' || person.role === 'manager');
+  const collaborators = directory.filter(person => person.role === 'collaborator');
+  const selectedCollaborator = collaborators.find(person => person.id === responsibleCollaboratorId);
+  const matchingCollaborators = collaboratorLookup.trim()
+    ? collaborators.filter(person => String(person.employeeNumber ?? '').trim() === collaboratorLookup.trim()) : [];
   const possibleApprovers = areaManagers;
   const visible = projects.filter(item => canManage ? item.archived === showArchived : !item.archived);
   const scroller = (children: React.ReactNode) => <ScrollView style={{ flex: 1 }}
@@ -199,12 +203,14 @@ export default function FirebaseApp() {
   }
   async function createProject() {
     if (!user || !profile) return;
-    const chosenAreaManager = areaManagers.find(person => person.id === areaManagerId);
+    const chosenCollaborator = collaborators.find(person => person.id === responsibleCollaboratorId);
     const costCents = parseMoney(cost), returnCents = parseMoney(expectedReturn);
-    const missing = [['Título', title], ['Descrição', description], ['Responsável', ownerName],
+    const missing = [['Título', title], ['Descrição', description],
       ['Origem da estimativa', estimateNotes]].find(([, value]) => !value.trim());
     if (missing) { Alert.alert('Falta preencher', `Informe: ${missing[0]}.`); return; }
-    if (!chosenAreaManager?.department) { Alert.alert('Escolha um gestor', 'Busque e selecione um gestor pela matrícula.'); return; }
+    if (!chosenCollaborator?.department || !chosenCollaborator.name.trim()) {
+      Alert.alert('Escolha um colaborador', 'Busque e selecione um colaborador ativo pela matrícula. Se ele não aparecer, peça à TI para conferir o cadastro.'); return;
+    }
     if (costCents === null || costCents <= 0) { Alert.alert('Confira o custo', 'Digite o custo em reais, só com números e maior que zero.'); return; }
     if (returnCents === null) { Alert.alert('Confira o retorno', 'Digite o retorno esperado em reais. Para nenhum retorno, digite 0.'); return; }
     setBusy(true);
@@ -213,9 +219,9 @@ export default function FirebaseApp() {
       const eventRef = doc(collection(projectRef, 'events'));
       const batch = writeBatch(db);
       batch.set(projectRef, {
-        title: title.trim(), description: description.trim(), area: chosenAreaManager.department, ownerName: ownerName.trim(),
+        title: title.trim(), description: description.trim(), area: chosenCollaborator.department, ownerName: chosenCollaborator.name,
         authorId: user.uid, authorName: profile.name, status: 'pending', archived: false,
-        areaManagerId, approverIds: [], approvalStates: {}, costCents, returnCents,
+        responsibleCollaboratorId, approverIds: [], approvalStates: {}, costCents, returnCents,
         returnPeriod, estimateNotes: estimateNotes.trim(),
         nonCompletionReason: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastActionId: eventRef.id,
       });
@@ -317,8 +323,8 @@ export default function FirebaseApp() {
     </View>}
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {!user ? scroller(<>
-        <Text style={s.heading}>Entrar</Text><Text style={s.sub}>Use sua conta autorizada pela empresa.</Text>
-        <Text style={s.sub}>Em uma implantação com matrícula e senha cadastradas pela empresa, a TI precisará integrar essa forma de acesso. Nesta versão conectada, o login ainda usa e-mail e senha do Firebase.</Text>
+        <Text style={s.heading}>Entrar</Text>
+        <Text style={s.sub}>Use sua conta autorizada pela empresa.</Text>
         <Text style={s.label}>E-MAIL</Text><TextInput style={s.input} value={email} onChangeText={setEmail}
           keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
         <Text style={[s.label, { marginTop: 14 }]}>SENHA</Text><TextInput style={s.input} value={password} onChangeText={setPassword}
@@ -334,14 +340,14 @@ export default function FirebaseApp() {
         <Text style={s.heading}>Nova proposta</Text>
         <Field label="Título da melhoria *" value={title} onChange={setTitle} maxLength={120} />
         <Field label="Descrição *" value={description} onChange={setDescription} multiline maxLength={4000} />
-        <Text style={s.section}>Gestor responsável *</Text>
-        <Field label="Matrícula do gestor *" value={managerLookup} onChange={value => { setManagerLookup(value); setAreaManagerId(''); }} />
-        {areaManagers.length === 0 && <Text style={s.sub}>A TI precisa cadastrar gestores ativos com matrícula para receber propostas.</Text>}
-        {managerLookup.trim() && areaManagers.filter(person => person.employeeNumber === managerLookup.trim()).map(person => <Pressable key={person.id} onPress={() => { setAreaManagerId(person.id); setArea(person.department); }}>
-          <Text style={s.link}>{areaManagerId === person.id ? '☑' : '☐'} {person.name} · {person.department}</Text>
+        <Text style={s.section}>Colaborador *</Text>
+        <Field label="Matrícula do colaborador *" value={collaboratorLookup} onChange={value => { setCollaboratorLookup(value); setResponsibleCollaboratorId(''); }} />
+        {collaborators.length === 0 && <Text style={s.sub}>A TI precisa cadastrar colaboradores ativos com matrícula para receber propostas.</Text>}
+        {collaboratorLookup.trim() && matchingCollaborators.length === 0 && <Text style={s.sub}>Nenhum colaborador ativo encontrado com essa matrícula.</Text>}
+        {matchingCollaborators.map(person => <Pressable key={person.id} onPress={() => setResponsibleCollaboratorId(person.id)}>
+          <Text style={s.link}>{responsibleCollaboratorId === person.id ? '☑' : '☐'} {person.name} · {person.department}</Text>
         </Pressable>)}
-        {areaManagerId ? <Text style={s.sub}>Gestor selecionado: {areaManagers.find(person => person.id === areaManagerId)?.name}</Text> : null}
-        <Field label="Responsável pelo projeto *" value={ownerName} onChange={setOwnerName} maxLength={120} />
+        {selectedCollaborator && <Text style={s.sub}>Responsável pelo projeto: {selectedCollaborator.name} · {selectedCollaborator.department}</Text>}
         <Text style={s.section}>Estimativa financeira</Text>
         <Text style={s.sub}>Digite somente números, em reais e sem centavos. Exemplo: 1500 = R$ 1.500,00.</Text>
         <Field label="Custo de implantação (R$) *" value={cost} onChange={setCost} maxLength={10} numeric />
@@ -354,11 +360,6 @@ export default function FirebaseApp() {
       </>) : current ? scroller(<>
         <Pressable onPress={() => { setSelectedId(null); setShowHistory(false); setShowNoComplete(false); }}><Text style={s.link}>‹ Voltar ao painel</Text></Pressable>
         <Text style={s.heading}>{current.title}</Text><Text style={s.badge}>{statuses[current.status]}</Text>
-        <View style={s.card}><Text style={s.cardTitle}>Como funciona a decisão</Text>
-          <Text style={s.sub}>1. Um gestor escolhe de dois a cinco aprovadores ou não aprova a proposta antes de enviá-la.</Text>
-          <Text style={s.sub}>2. Cada gestor escolhido aprova com a própria conta, sem precisar comentar.</Text>
-          <Text style={s.sub}>3. Após todas as aprovações, ela fica em andamento. Só o autor pode concluir; um gestor pode registrar a não conclusão com motivo.</Text>
-        </View>
         {current.archived && <Text style={s.notice}>Proposta excluída · histórico preservado</Text>}
         <Text style={s.label}>SETOR</Text><Text style={s.value}>{current.area}</Text>
         <Text style={s.label}>RESPONSÁVEL</Text><Text style={s.value}>{current.ownerName}</Text>
@@ -417,10 +418,6 @@ export default function FirebaseApp() {
         </View>)}
       </>) : scroller(<>
         <Text style={s.heading}>Painel de melhorias</Text><Text style={s.sub}>Propostas e andamento da fábrica.</Text>
-        <View style={s.card}><Text style={s.cardTitle}>Etapas da proposta</Text>
-          <Text style={s.sub}>Criar → escolher gestores → cada um aprova → em andamento → autor conclui.</Text>
-          <Text style={s.sub}>Antes das aprovações, um gestor pode não aprovar. Se a execução parar, um gestor registra o motivo da não conclusão.</Text>
-        </View>
         <Button title="+ Propor melhoria" onPress={() => { resetForm(); setCreating(true); }} />
         {canManage && <Button title={showArchived ? 'Ver propostas ativas' : 'Ver propostas excluídas'}
           onPress={() => setShowArchived(!showArchived)} outline />}

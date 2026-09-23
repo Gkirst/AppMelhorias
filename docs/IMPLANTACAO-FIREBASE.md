@@ -25,9 +25,9 @@ Crie os usuários na área **Authentication → Users**. Para cada UID criado, a
 }
 ```
 
-Use `"role": "area_manager"` ou `"role": "manager"` para os gestores. Os dois perfis têm os mesmos privilégios de gestão no aplicativo. Cada pessoa precisa da própria conta e UID. A matrícula (`employeeNumber`) deve ser única. Preencha `department` com o setor do gestor responsável: esse nome aparecerá no cadastro da proposta. O UID do documento precisa ser exatamente o UID do Authentication. Se `active` for `false` ou o documento não existir, a conta não acessa os dados. Não dê a colaboradores acesso ao console Firebase; as permissões do app são diferentes das permissões administrativas do console.
+Use `"role": "area_manager"` ou `"role": "manager"` para os gestores. Os dois perfis têm os mesmos privilégios de gestão no aplicativo. Cada pessoa precisa da própria conta e UID. A matrícula (`employeeNumber`) deve ser única e o `department` do colaborador selecionado define o setor da proposta. O UID do documento precisa ser exatamente o UID do Authentication. Se `active` for `false` ou o documento não existir, a conta não acessa os dados. Não dê a colaboradores acesso ao console Firebase; as permissões do app são diferentes das permissões administrativas do console.
 
-Os usuários ativos conseguem consultar nomes, matrículas, departamentos, papéis e e-mails dos perfis internos. Cadastre apenas informações profissionais necessárias. O autor busca um gestor pela matrícula ao criar a proposta. Depois, qualquer gestor ativo busca pela matrícula e escolhe de dois a cinco aprovadores. Antes disso, pode marcar **Não aprovar**. Não há uma lista fixa. Cada aprovador confirma com a própria conta, sem precisar publicar comentário. Após a última aprovação, a proposta entra automaticamente em **Em andamento**. Somente o autor pode marcá-la como **Concluída** ou excluí-la. Gestores podem registrar a não conclusão com motivo.
+Os usuários ativos conseguem consultar nomes, matrículas, departamentos, papéis e e-mails dos perfis internos. Cadastre apenas informações profissionais necessárias. O autor busca um colaborador ativo pela matrícula ao criar a proposta; o nome e o setor são preenchidos a partir desse cadastro. Depois, qualquer gestor ativo busca pela matrícula e escolhe de dois a cinco aprovadores. Antes disso, pode marcar **Não aprovar**. Não há uma lista fixa. Cada aprovador confirma com a própria conta, sem precisar publicar comentário. Após a última aprovação, a proposta entra automaticamente em **Em andamento**. Somente o autor pode marcá-la como **Concluída** ou excluí-la. Gestores podem registrar a não conclusão com motivo.
 
 O app não cria contas nem altera papéis. Para muitos usuários, a TI pode automatizar o provisionamento com ferramentas administrativas próprias, depois de revisar o processo.
 
@@ -53,6 +53,8 @@ O custo de implantação e o retorno esperado são estimativas informadas em rea
 
 Registre um aplicativo no Firebase e copie os dados de configuração do SDK para as variáveis de `.env.example`. Crie um `.env` local, sem enviá-lo ao GitHub. Para builds na nuvem, configure os mesmos valores `EXPO_PUBLIC_FIREBASE_*` no [ambiente `preview` ou `production` do EAS](https://docs.expo.dev/eas/environment-variables/). O arquivo `eas.json` já seleciona esses ambientes nos perfis conectados.
 
+Se você fez o teste com os emuladores locais, confira que `EXPO_PUBLIC_FIREBASE_EMULATOR` não está definido como `true` no build da empresa. O [guia de teste local](TESTE-LOCAL-FIREBASE.md) usa essa opção apenas para impedir a conexão com um projeto real durante a simulação.
+
 Esses valores identificam o projeto e estarão dentro do APK; não são senhas de administrador. A proteção dos dados depende de Authentication, das regras do Firestore e do controle das contas. Jamais coloque um arquivo de conta de serviço dentro do aplicativo.
 
 Antes do build, substitua o identificador de exemplo `br.com.suaempresa.painelmelhorias` em `app.json` por um identificador aprovado pela empresa e disponível na Google Play. Vincule o projeto à conta Expo/EAS da empresa; nenhum identificador de conta pessoal está no repositório.
@@ -63,7 +65,7 @@ Após `npx eas-cli build:configure`, confira o `projectId` acrescentado ao `app.
 
 Use pelo menos quatro contas (colaborador, gestor da área e dois gestores aprovadores) em aparelhos conectados à internet:
 
-1. Colaborador cria uma proposta com custo, retorno, período e justificativa. Confira a conversão entre valor mensal e anual.
+1. Colaborador cria uma proposta, seleciona um colaborador ativo pela matrícula e informa custo, retorno, período e justificativa. Confira a conversão entre valor mensal e anual.
 2. Um gestor busca pela matrícula e escolhe dois gestores diferentes. A proposta passa para **Aguardando aprovações**.
 3. O primeiro gestor aprova; a execução ainda deve estar bloqueada. Uma tentativa de aprovar usando a conta de outro gestor deve ser negada pelas regras.
 4. O segundo gestor aprova sem comentar; a proposta passa automaticamente para **Em andamento**. O autor conclui a execução, e cada ação aparece no histórico.
@@ -78,4 +80,4 @@ Revise também regras de privacidade, backup, recuperação, monitoramento e cus
 
 O perfil `preview` gera um APK para teste interno. O perfil `production` gera um AAB para distribuição por loja. Defina quem pode baixar e instalar o APK e como serão feitas as atualizações. Um APK de teste não se atualiza sozinho em todos os aparelhos.
 
-As propostas criadas na versão offline não são importadas automaticamente. Propostas de versões anteriores do esquema Firestore também precisam de migração antes de aplicar estas regras: os novos campos de custo, retorno, gestor da área e aprovadores são obrigatórios. A TI deve planejar uma importação ou migração aprovada, com conferência dos dados e dos responsáveis.
+As propostas criadas na versão offline não são importadas automaticamente. Propostas de versões anteriores do esquema Firestore também precisam de migração antes de aplicar estas regras: o campo `areaManagerId` foi substituído por `responsibleCollaboratorId`, além dos campos de custo, retorno e aprovadores. A TI deve planejar uma importação ou migração aprovada, com conferência dos dados e dos responsáveis.

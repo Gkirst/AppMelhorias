@@ -31,12 +31,12 @@ service cloud.firestore {
     function projectFields() {
       return request.resource.data.keys().hasAll([
         'title', 'description', 'area', 'ownerName', 'authorId', 'authorName',
-        'areaManagerId', 'approverIds', 'approvalStates', 'costCents', 'returnCents',
+        'responsibleCollaboratorId', 'approverIds', 'approvalStates', 'costCents', 'returnCents',
         'returnPeriod', 'estimateNotes', 'status', 'archived', 'nonCompletionReason',
         'createdAt', 'updatedAt', 'lastActionId'
       ]) && request.resource.data.keys().hasOnly([
         'title', 'description', 'area', 'ownerName', 'authorId', 'authorName',
-        'areaManagerId', 'approverIds', 'approvalStates', 'costCents', 'returnCents',
+        'responsibleCollaboratorId', 'approverIds', 'approvalStates', 'costCents', 'returnCents',
         'returnPeriod', 'estimateNotes', 'status', 'archived', 'nonCompletionReason',
         'createdAt', 'updatedAt', 'lastActionId'
       ]);
@@ -58,9 +58,10 @@ service cloud.firestore {
         && request.resource.data.returnCents <= 1000000000000
         && request.resource.data.returnPeriod in ['month', 'year'];
     }
-    function validAreaManager() {
-      return validManager(request.resource.data.areaManagerId)
-        && get(userDoc(request.resource.data.areaManagerId)).data.department == request.resource.data.area;
+    function validResponsibleCollaborator() {
+      return validPerson(request.resource.data.responsibleCollaboratorId, 'collaborator')
+        && get(userDoc(request.resource.data.responsibleCollaboratorId)).data.department == request.resource.data.area
+        && get(userDoc(request.resource.data.responsibleCollaboratorId)).data.name == request.resource.data.ownerName;
     }
     function validApproverAt(index) {
       return request.resource.data.approverIds.size() <= index
@@ -97,14 +98,14 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow get: if signed() && request.auth.uid == uid;
-      // A lista interna permite escolher gestores cadastrados pela TI.
+      // A lista interna permite escolher colaboradores e gestores cadastrados pela TI.
       allow list: if member();
       allow create, update, delete: if false;
     }
 
     match /projects/{pid} {
       allow get, list: if member() && (resource.data.archived == false || areaManagerRole());
-      allow create: if member() && projectFields() && validProposal() && validAreaManager()
+      allow create: if member() && projectFields() && validProposal() && validResponsibleCollaborator()
         && request.resource.data.authorId == request.auth.uid
         && request.resource.data.authorName == myName()
         && request.resource.data.status == 'pending'
@@ -195,7 +196,6 @@ service cloud.firestore {
             ||
             (request.resource.data.type == 'review_started'
               && areaManagerRole()
-              && getAfter(projectDoc(pid)).data.areaManagerId == request.auth.uid
               && getAfter(projectDoc(pid)).data.status == 'review'
               && getAfter(projectDoc(pid)).data.lastActionId == eid
               && getAfter(projectDoc(pid)).data.updatedAt == request.time)

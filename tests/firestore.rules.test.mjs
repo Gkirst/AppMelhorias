@@ -19,14 +19,40 @@ const profiles = {
 function projectData(status = 'review') {
   return {
     title: 'Reduzir perdas no processo', description: 'Proposta de teste das aprovações.',
-    area: 'Extrusão', ownerName: 'Equipe', authorId: 'employee', authorName: 'Colaborador',
-    areaManagerId: 'area', approverIds: ['managerOne', 'managerTwo'],
+    area: 'Extrusão', ownerName: 'Colaborador', authorId: 'employee', authorName: 'Colaborador',
+    responsibleCollaboratorId: 'employee', approverIds: ['managerOne', 'managerTwo'],
     approvalStates: { managerOne: 'pending', managerTwo: 'pending' },
     costCents: 120000, returnCents: 30000, returnPeriod: 'month', estimateNotes: 'Medição de perdas mensais.',
     status, archived: false, nonCompletionReason: '', createdAt: new Date(), updatedAt: new Date(), lastActionId: 'seed',
   };
 }
 function client(uid) { return environment.authenticatedContext(uid).firestore(); }
+function creationBatch(uid, responsibleId, ownerName = profiles[responsibleId].name, id = 'new-proposal') {
+  const database = client(uid);
+  const project = doc(database, 'projects', id);
+  const event = doc(collection(project, 'events'));
+  const batch = writeBatch(database);
+  batch.set(project, {
+    ...projectData('pending'), responsibleCollaboratorId: responsibleId, ownerName,
+    authorId: uid, authorName: profiles[uid].name, approverIds: [], approvalStates: {},
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastActionId: event.id,
+  });
+  batch.set(event, { type: 'created', actorId: uid, actorName: profiles[uid].name,
+    detail: '', createdAt: serverTimestamp() });
+  return batch.commit();
+}
+function reviewBatch(uid) {
+  const database = client(uid);
+  const project = doc(database, 'projects', projectId);
+  const event = doc(collection(project, 'events'));
+  const batch = writeBatch(database);
+  batch.update(project, { status: 'review', approverIds: ['managerOne', 'managerTwo'],
+    approvalStates: { managerOne: 'pending', managerTwo: 'pending' },
+    updatedAt: serverTimestamp(), lastActionId: event.id });
+  batch.set(event, { type: 'review_started', actorId: uid, actorName: profiles[uid].name,
+    detail: 'Gestores definidos', createdAt: serverTimestamp() });
+  return batch.commit();
+}
 function approvalBatch(uid, states, status) {
   const database = client(uid);
   const project = doc(database, 'projects', projectId);
@@ -73,6 +99,21 @@ beforeEach(async () => {
   });
 });
 after(async () => { if (environment) await environment.cleanup(); });
+
+test('proposta é enviada com colaborador ativo escolhido pela matrícula', async () => {
+  await assertSucceeds(creationBatch('employee', 'employee'));
+  await assertFails(creationBatch('employee', 'area', profiles.area.name, 'invalid-role'));
+  await assertFails(creationBatch('employee', 'employee', 'Nome diferente', 'invalid-name'));
+});
+
+test('qualquer gestor ativo pode encaminhar uma proposta para aprovação', async () => {
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'projects', projectId), {
+      ...projectData('pending'), approverIds: [], approvalStates: {},
+    });
+  });
+  await assertSucceeds(reviewBatch('managerOne'));
+});
 
 test('cada gestor aprova somente a própria etapa', async () => {
   await assertSucceeds(approvalBatch('managerOne', { managerOne: 'approved', managerTwo: 'pending' }, 'review'));
