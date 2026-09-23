@@ -55,6 +55,8 @@ npm run check
 
 O APK deste passo a passo funciona **offline**: cada celular guarda seus próprios dados, sem sincronizar propostas com os outros. Para apresentar o app e conhecer as telas, não é necessário criar um Firebase.
 
+**Para testar estas correções, use uma cópia atualizada do projeto.** Se você já clonou o repositório com Git, abra o CMD na pasta do projeto e rode `git pull origin main` antes de continuar. Se baixou um ZIP anteriormente, baixe um **novo ZIP** pelo GitHub e extraia-o em outra pasta; o ZIP antigo não recebe atualizações. Não rode o build na pasta antiga.
+
 1. Instale o [Node.js](https://nodejs.org/) no computador e crie uma conta gratuita no [Expo](https://expo.dev/signup). Depois de instalar o Node.js, feche e abra o Prompt de Comando novamente.
 2. Baixe este projeto pelo botão **Code → Download ZIP** no GitHub e extraia o ZIP. Abra a pasta extraída no Explorador de Arquivos, clique na barra de endereço, copie o caminho e use-o no comando abaixo. O caminho é só um exemplo: substitua pelo caminho real da sua pasta.
 3. Abra o **Prompt de Comando (CMD)**. Não rode os comandos em `C:\Windows\System32`: primeiro entre na pasta que contém `package.json`.
@@ -84,6 +86,8 @@ npx eas-cli build --platform android --profile offline
 ```
 
 O serviço mostrará um link para acompanhar o andamento. Quando terminar, abra esse link, baixe o arquivo **`.apk`**, envie-o para o celular Android e abra o arquivo no aparelho para instalar. O Android pode pedir autorização para instalar aplicativos dessa origem; conceda-a apenas se você reconhece o APK que acabou de gerar. A geração acontece na nuvem e pode demorar alguns minutos. Não é preciso deixar o Node.js aberto depois que o APK estiver instalado.
+
+Esta atualização usa a versão **2.0.1 (código Android 7)**. Se um APK anterior estiver instalado, tente instalar o novo por cima. Se o Android disser que o aplicativo não pode ser atualizado, a assinatura ou o identificador do app pode ser diferente. Nesse caso, não desinstale o antigo sem antes conferir se há propostas offline que você queira guardar: os dados locais podem ser perdidos na desinstalação.
 
 **Importante:** se você fechar a janela do Prompt de Comando, a variável `EAS_NO_VCS=1` é apagada. Caso abra um CMD novo para continuar depois, entre novamente na pasta do projeto e digite `set EAS_NO_VCS=1` antes de rodar os comandos do EAS. Se aparecer `Run this command inside a project directory`, o CMD está na pasta errada; volte ao passo 3. Se surgir um erro relacionado a Git, confira se executou `set EAS_NO_VCS=1` nessa mesma janela.
 
