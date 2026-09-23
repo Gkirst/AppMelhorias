@@ -10,7 +10,9 @@ No modo **conectado**, cada pessoa entra com uma conta própria criada pela empr
 
 ## Recursos
 
-Cada proposta registra custo de implantação, retorno esperado, período mensal ou anual e uma explicação para a estimativa. O aplicativo apresenta o retorno nos dois períodos para facilitar a comparação. O gestor da área escolhe de dois a cinco gestores aprovadores; cada um usa a própria conta e registra sua decisão. A execução só pode começar depois de todas as aprovações. Colaboradores podem criar propostas e comentar; o gestor da área acompanha a execução, conclui ou registra a não conclusão com motivo. Propostas excluídas e o histórico geral ficam restritos aos gestores da área.
+Cada proposta registra custo de implantação, retorno esperado, período mensal ou anual e uma explicação para a estimativa. Os valores são digitados em reais, somente com números e sem centavos. O aplicativo apresenta o retorno nos dois períodos para facilitar a comparação. Um gestor escolhe de dois a cinco aprovadores; cada um usa a própria conta e pode aprovar sem publicar comentário. Após a última aprovação, a proposta passa automaticamente para **Em andamento**. Somente quem criou a proposta pode concluí-la. Os gestores podem registrar a não conclusão com motivo. Propostas excluídas e o histórico geral ficam restritos aos gestores. O painel mostra um gráfico simples com os totais por situação.
+
+Na demonstração offline, a tela informa que os dados não são sincronizados. O perfil é escolhido antes da senha. Esta versão começa sem propostas de demonstração; propostas de testes antigos ficam fora da lista atual. Ao sair de **Nova proposta**, o formulário é limpo. No Firebase, a seleção de gestores é feita por busca da matrícula cadastrada pela TI.
 
 As permissões são aplicadas nas regras do Firestore, não somente na tela do aplicativo.
 

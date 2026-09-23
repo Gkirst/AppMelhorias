@@ -10,13 +10,17 @@ service cloud.firestore {
       return signed() && exists(myDoc()) && get(myDoc()).data.active == true
         && get(myDoc()).data.role in ['collaborator', 'area_manager', 'manager'];
     }
-    function areaManagerRole() { return member() && get(myDoc()).data.role == 'area_manager'; }
-    function manager() { return member() && get(myDoc()).data.role == 'manager'; }
-    function areaManager() { return areaManagerRole() && resource.data.areaManagerId == request.auth.uid; }
+    function manager() { return member() && get(myDoc()).data.role in ['area_manager', 'manager']; }
+    function areaManagerRole() { return manager(); }
+    function areaManager() { return manager(); }
     function myName() { return get(myDoc()).data.name; }
     function validPerson(uid, role) {
       return uid is string && exists(userDoc(uid)) && get(userDoc(uid)).data.active == true
         && get(userDoc(uid)).data.role == role;
+    }
+    function validManager(uid) {
+      return uid is string && exists(userDoc(uid)) && get(userDoc(uid)).data.active == true
+        && get(userDoc(uid)).data.role in ['area_manager', 'manager'];
     }
     function linkedEvent(pid, eid, kind) {
       return existsAfter(eventDoc(pid, eid))
@@ -55,12 +59,12 @@ service cloud.firestore {
         && request.resource.data.returnPeriod in ['month', 'year'];
     }
     function validAreaManager() {
-      return validPerson(request.resource.data.areaManagerId, 'area_manager')
+      return validManager(request.resource.data.areaManagerId)
         && get(userDoc(request.resource.data.areaManagerId)).data.department == request.resource.data.area;
     }
     function validApproverAt(index) {
       return request.resource.data.approverIds.size() <= index
-        || validPerson(request.resource.data.approverIds[index], 'manager');
+        || validManager(request.resource.data.approverIds[index]);
     }
     function validApprovers() {
       return request.resource.data.approverIds is list
@@ -88,7 +92,7 @@ service cloud.firestore {
       return (resource.data.status == 'pending' && request.resource.data.status == 'rejected')
         || (resource.data.status == 'approved' && request.resource.data.status == 'in_progress')
         || (resource.data.status == 'in_progress'
-          && request.resource.data.status in ['completed', 'not_completed']);
+          && request.resource.data.status == 'not_completed');
     }
 
     match /users/{uid} {
@@ -137,7 +141,7 @@ service cloud.firestore {
             && request.resource.data.approvalStates.diff(resource.data.approvalStates).affectedKeys()
               .hasOnly([request.auth.uid])
             && request.resource.data.approvalStates[request.auth.uid] == 'approved'
-            && ((allApproved() && request.resource.data.status == 'approved')
+            && ((allApproved() && request.resource.data.status == 'in_progress')
               || (!allApproved() && request.resource.data.status == 'review'))
             && linkedEvent(pid, request.resource.data.lastActionId, 'manager_approved'))
           ||
@@ -147,6 +151,15 @@ service cloud.firestore {
             ])
             && standardTransition() && validReason()
             && linkedEvent(pid, request.resource.data.lastActionId, request.resource.data.status))
+          ||
+          (member()
+            && resource.data.authorId == request.auth.uid
+            && resource.data.status == 'in_progress'
+            && request.resource.data.status == 'completed'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'updatedAt', 'lastActionId'
+            ])
+            && linkedEvent(pid, request.resource.data.lastActionId, 'completed'))
           ||
           (areaManager()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -195,8 +208,9 @@ service cloud.firestore {
               && getAfter(projectDoc(pid)).data.updatedAt == request.time)
             ||
             (request.resource.data.type in ['rejected', 'in_progress', 'completed', 'not_completed', 'archived']
-              && areaManagerRole()
-              && getAfter(projectDoc(pid)).data.areaManagerId == request.auth.uid
+              && (request.resource.data.type == 'completed'
+                ? getAfter(projectDoc(pid)).data.authorId == request.auth.uid
+                : manager())
               && getAfter(projectDoc(pid)).data.lastActionId == eid
               && getAfter(projectDoc(pid)).data.updatedAt == request.time
               && ((request.resource.data.type == 'archived'

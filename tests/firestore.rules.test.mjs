@@ -10,10 +10,10 @@ import {
 let environment;
 const projectId = 'proposal-one';
 const profiles = {
-  employee: { name: 'Colaborador', email: 'employee@example.test', role: 'collaborator', department: 'Extrusão', active: true },
-  area: { name: 'Gestora da área', email: 'area@example.test', role: 'area_manager', department: 'Extrusão', active: true },
-  managerOne: { name: 'Gestor da manutenção', email: 'manager1@example.test', role: 'manager', department: 'Manutenção', active: true },
-  managerTwo: { name: 'Gestora de custos', email: 'manager2@example.test', role: 'manager', department: 'Custos', active: true },
+  employee: { name: 'Colaborador', email: 'employee@example.test', employeeNumber: '100', role: 'collaborator', department: 'Extrusão', active: true },
+  area: { name: 'Gestora da área', email: 'area@example.test', employeeNumber: '200', role: 'area_manager', department: 'Extrusão', active: true },
+  managerOne: { name: 'Gestor da manutenção', email: 'manager1@example.test', employeeNumber: '300', role: 'manager', department: 'Manutenção', active: true },
+  managerTwo: { name: 'Gestora de custos', email: 'manager2@example.test', employeeNumber: '400', role: 'manager', department: 'Custos', active: true },
 };
 
 function projectData(status = 'review') {
@@ -37,13 +37,13 @@ function approvalBatch(uid, states, status) {
     detail: '', createdAt: serverTimestamp() });
   return batch.commit();
 }
-function startBatch(status) {
-  const database = client('area');
+function completionBatch(uid) {
+  const database = client(uid);
   const project = doc(database, 'projects', projectId);
   const event = doc(collection(project, 'events'));
   const batch = writeBatch(database);
-  batch.update(project, { status, nonCompletionReason: '', updatedAt: serverTimestamp(), lastActionId: event.id });
-  batch.set(event, { type: status, actorId: 'area', actorName: profiles.area.name,
+  batch.update(project, { status: 'completed', updatedAt: serverTimestamp(), lastActionId: event.id });
+  batch.set(event, { type: 'completed', actorId: uid, actorName: profiles[uid].name,
     detail: '', createdAt: serverTimestamp() });
   return batch.commit();
 }
@@ -68,19 +68,20 @@ test('cada gestor aprova somente a própria etapa', async () => {
   await assertSucceeds(approvalBatch('managerOne', { managerOne: 'approved', managerTwo: 'pending' }, 'review'));
   const project = await getDoc(doc(client('employee'), 'projects', projectId));
   if (project.data()?.status !== 'review') throw new Error('A proposta avançou antes de todas as aprovações.');
-  await assertFails(approvalBatch('managerOne', { managerOne: 'approved', managerTwo: 'approved' }, 'approved'));
-  await assertSucceeds(approvalBatch('managerTwo', { managerOne: 'approved', managerTwo: 'approved' }, 'approved'));
+  await assertFails(approvalBatch('managerOne', { managerOne: 'approved', managerTwo: 'approved' }, 'in_progress'));
+  await assertSucceeds(approvalBatch('managerTwo', { managerOne: 'approved', managerTwo: 'approved' }, 'in_progress'));
   const approved = await getDoc(doc(client('employee'), 'projects', projectId));
-  if (approved.data()?.status !== 'approved') throw new Error('A proposta não foi liberada após todas as aprovações.');
+  if (approved.data()?.status !== 'in_progress') throw new Error('A proposta não entrou em andamento após todas as aprovações.');
 });
 
 test('colaborador não pode assinar a aprovação de um gestor', async () => {
   await assertFails(approvalBatch('employee', { managerOne: 'approved', managerTwo: 'pending' }, 'review'));
 });
 
-test('gestor da área não inicia antes de todas as aprovações', async () => {
-  await assertFails(startBatch('in_progress'));
+test('somente o autor conclui após todas as aprovações', async () => {
+  await assertFails(completionBatch('employee'));
   await assertSucceeds(approvalBatch('managerOne', { managerOne: 'approved', managerTwo: 'pending' }, 'review'));
-  await assertSucceeds(approvalBatch('managerTwo', { managerOne: 'approved', managerTwo: 'approved' }, 'approved'));
-  await assertSucceeds(startBatch('in_progress'));
+  await assertSucceeds(approvalBatch('managerTwo', { managerOne: 'approved', managerTwo: 'approved' }, 'in_progress'));
+  await assertFails(completionBatch('area'));
+  await assertSucceeds(completionBatch('employee'));
 });

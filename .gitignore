@@ -3,6 +3,7 @@ node_modules/
 dist/
 dist-check/
 .expo-export-check/
+.expo-export-check-firebase/
 .npm-cache-build/
 android/
 ios/
